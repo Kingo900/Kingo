@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: kingo-api
+    env: node
+    buildCommand: npm install && pip install yt-dlp
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: ADMIN_SECRET
+        generateValue: true
+    plan: free
