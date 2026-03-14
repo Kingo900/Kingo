@@ -95,7 +95,7 @@ app.get("/api/info", (req, res) => {
 
 const COOKIES = path.join(__dirname, "cookies.txt");
 const cookieArg = fs.existsSync(COOKIES) ? `--cookies "${COOKIES}"` : "";
-const cmd = `yt-dlp --dump-json --no-playlist ${cookieArg} --js-runtimes "node:${NODE_PATH}" "${url}"`;
+const cmd = `yt-dlp --dump-json --no-playlist ${cookieArg} --js-runtimes "node:${NODE_PATH}" --remote-components ejs:github "${url}"`;
   
   exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
     if (err) {
@@ -138,7 +138,7 @@ app.get("/api/download", (req, res) => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kingo-"));
   const outputTemplate = path.join(tmpDir, "%(title)s.%(ext)s");
   const cookiesArgs = fs.existsSync(path.join(__dirname, "cookies.txt")) ? ["--cookies", path.join(__dirname, "cookies.txt")] : [];
-  const args = ["--no-playlist", ...cookiesArgs, "--js-runtimes", `node:${NODE_PATH}`, "-o", outputTemplate];
+  const args = ["--no-playlist", ...cookiesArgs, "--js-runtimes", `node:${NODE_PATH}`, "--remote-components", "ejs:github", "-o", outputTemplate];
 
   if (type === "audio") {
     args.push("-x", "--audio-format", format, "--audio-quality", "0");
