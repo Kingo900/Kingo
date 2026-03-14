@@ -93,7 +93,10 @@ app.get("/api/info", (req, res) => {
   if (store.blocked.has(ip)) return res.status(403).json({ error: "Your IP has been blocked." });
   if (store.settings.maintenanceMode) return res.status(503).json({ error: "Kingo is under maintenance. Check back soon." });
 
-  const cmd = `yt-dlp --dump-json --no-playlist --js-runtimes "node:${NODE_PATH}" "${url}"`;
+const COOKIES = path.join(__dirname, "cookies.txt");
+const cookieArg = fs.existsSync(COOKIES) ? `--cookies "${COOKIES}"` : "";
+const cmd = `yt-dlp --dump-json --no-playlist ${cookieArg} --js-runtimes "node:${NODE_PATH}" "${url}"`;
+  
   exec(cmd, { timeout: 30000 }, (err, stdout, stderr) => {
     if (err) {
       logError(url, stderr?.slice(0, 300) || err.message, ip);
@@ -134,7 +137,8 @@ app.get("/api/download", (req, res) => {
   store.activeJobs++;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kingo-"));
   const outputTemplate = path.join(tmpDir, "%(title)s.%(ext)s");
-  const args = ["--no-playlist", "--js-runtimes", `node:${NODE_PATH}`, "-o", outputTemplate];
+  const cookiesArgs = fs.existsSync(path.join(__dirname, "cookies.txt")) ? ["--cookies", path.join(__dirname, "cookies.txt")] : [];
+  const args = ["--no-playlist", ...cookiesArgs, "--js-runtimes", `node:${NODE_PATH}`, "-o", outputTemplate];
 
   if (type === "audio") {
     args.push("-x", "--audio-format", format, "--audio-quality", "0");
