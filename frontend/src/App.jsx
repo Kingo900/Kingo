@@ -51,7 +51,7 @@ const fmt = (total) => { const { h, m, s } = fromSecs(total); return `${String(h
 const fmtDiff = (secs) => { const t = Math.round(secs); if (t < 60) return `${t}s`; if (t < 3600) return `${Math.floor(t/60)}m ${t%60}s`; return `${Math.floor(t/3600)}h ${Math.floor((t%3600)/60)}m`; };
 
 // ── Recent URLs (localStorage) ────────────────────────────────────────────────
-const RECENT_KEY = "kingo_recent_urls";
+const RECENT_KEY = "kingo_Recent_urls";
 const MAX_RECENT = 5;
 
 function getRecentURLs() {
