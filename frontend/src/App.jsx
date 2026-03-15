@@ -50,6 +50,48 @@ const fromSecs = (total) => { const t = Math.max(0, Math.round(total)); return {
 const fmt = (total) => { const { h, m, s } = fromSecs(total); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; };
 const fmtDiff = (secs) => { const t = Math.round(secs); if (t < 60) return `${t}s`; if (t < 3600) return `${Math.floor(t/60)}m ${t%60}s`; return `${Math.floor(t/3600)}h ${Math.floor((t%3600)/60)}m`; };
 
+// ── Confetti ──────────────────────────────────────────────────────────────────
+function Confetti() {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const pieces = Array.from({ length: 120 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -20,
+      w: Math.random() * 10 + 5,
+      h: Math.random() * 6 + 3,
+      color: ["#7c3aed","#f59e0b","#10b981","#3b82f6","#ef4444","#ec4899"][Math.floor(Math.random()*6)],
+      rot: Math.random() * 360,
+      rotV: (Math.random() - 0.5) * 6,
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * 4 + 2,
+    }));
+    let alive = true;
+    const animate = () => {
+      if (!alive) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      pieces.forEach(p => {
+        p.x += p.vx; p.y += p.vy; p.rot += p.rotV;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rot * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      if (pieces.some(p => p.y < canvas.height)) requestAnimationFrame(animate);
+      else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    animate();
+    return () => { alive = false; };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position:"fixed", top:0, left:0, pointerEvents:"none", zIndex:9999 }} />;
+}
+
 function Spinner({ color, size = 16 }) {
   return <span style={{ display:"inline-block", width:size, height:size, border:`2px solid ${color}33`, borderTop:`2px solid ${color}`, borderRadius:"50%", animation:"spin 0.8s linear infinite", flexShrink:0 }} />;
 }
@@ -175,14 +217,12 @@ function TrimPanel({ theme, duration, startTime, endTime, onStartChange, onEndCh
             </div>
             <TimeInput value={endTime} onChange={v=>onEndChange(Math.max(v,startTime+2))} max={duration} label="End" theme={theme} color={theme.accent2} />
           </div>
-          <div style={{ marginTop:16 }}>
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-              {[{label:"First 30s",s:0,e:Math.min(30,duration)},{label:"First 1min",s:0,e:Math.min(60,duration)},{label:"Last 1min",s:Math.max(0,duration-60),e:duration},{label:"Middle",s:duration*0.25,e:duration*0.75},{label:"Full",s:0,e:duration}]
-                .filter(p=>p.e-p.s>1).map(p=>(
-                <button key={p.label} onClick={()=>{onStartChange(p.s);onEndChange(p.e);}}
-                  style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:20, padding:"5px 12px", color:theme.textSub, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>{p.label}</button>
-              ))}
-            </div>
+          <div style={{ marginTop:16, display:"flex", gap:8, flexWrap:"wrap" }}>
+            {[{label:"First 30s",s:0,e:Math.min(30,duration)},{label:"First 1min",s:0,e:Math.min(60,duration)},{label:"Last 1min",s:Math.max(0,duration-60),e:duration},{label:"Middle",s:duration*0.25,e:duration*0.75},{label:"Full",s:0,e:duration}]
+              .filter(p=>p.e-p.s>1).map(p=>(
+              <button key={p.label} onClick={()=>{onStartChange(p.s);onEndChange(p.e);}}
+                style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:20, padding:"5px 12px", color:theme.textSub, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>{p.label}</button>
+            ))}
           </div>
           <div style={{ marginTop:16, background:theme.surface, borderRadius:10, padding:"10px 14px", display:"flex", alignItems:"center", gap:10 }}>
             <span style={{ color:theme.textSub, fontSize:12, flex:1 }}>
@@ -199,18 +239,46 @@ function TrimPanel({ theme, duration, startTime, endTime, onStartChange, onEndCh
   );
 }
 
+// ── Progress Bar ──────────────────────────────────────────────────────────────
+function ProgressBar({ percent, speed, eta, status, theme }) {
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <span style={{ color:theme.textSub, fontSize:13 }}>{status}</span>
+        <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+          {speed && <span style={{ color:theme.accent2, fontSize:12, fontWeight:600 }}>⚡ {speed}</span>}
+          {eta && <span style={{ color:theme.textMuted, fontSize:12 }}>ETA {eta}</span>}
+          <span style={{ color:theme.accent, fontWeight:800, fontSize:15, fontVariantNumeric:"tabular-nums" }}>{Math.round(percent)}%</span>
+        </div>
+      </div>
+      <div style={{ background:theme.surface, borderRadius:100, height:8, overflow:"hidden", border:`1px solid ${theme.border}` }}>
+        <div style={{ width:`${percent}%`, height:"100%", borderRadius:100, background:`linear-gradient(90deg,${theme.accent},${theme.accent2})`, transition:"width 0.3s ease", boxShadow:`0 0 10px ${theme.accentGlow}` }} />
+      </div>
+      <div style={{ marginTop:8, display:"flex", justifyContent:"space-between" }}>
+        <span style={{ fontSize:10, color:theme.textMuted }}>Downloading…</span>
+        <span style={{ fontSize:10, color:theme.textMuted }}>{percent < 99 ? "Do not close this tab" : "Finalizing…"}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Download Tab ──────────────────────────────────────────────────────────────
 function DownloadTab({ theme, banner }) {
   const [url, setUrl] = useState("");
   const [mediaType, setMediaType] = useState("video");
   const [format, setFormat] = useState("mp4");
   const [quality, setQuality] = useState(QUALITY_OPTIONS.video[2]);
+  // status: idle | analyzing | ready | downloading | done | error
   const [status, setStatus] = useState("idle");
   const [videoInfo, setVideoInfo] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [trimEnabled, setTrimEnabled] = useState(false);
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
+  const [progress, setProgress] = useState({ percent: 0, speed: "", eta: "", statusMsg: "Starting…" });
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [lastDownload, setLastDownload] = useState(null); // { fileName, sizeMB }
+  const eventSourceRef = useRef(null);
 
   const formats = mediaType === "video" ? VIDEO_FORMATS : AUDIO_FORMATS;
   const qualities = QUALITY_OPTIONS[mediaType];
@@ -219,6 +287,16 @@ function DownloadTab({ theme, banner }) {
     if (mediaType==="video") { setFormat("mp4"); setQuality(QUALITY_OPTIONS.video[2]); }
     else { setFormat("mp3"); setQuality(QUALITY_OPTIONS.audio[0]); }
   }, [mediaType]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Enter" && status === "idle" && url) handleAnalyze();
+      if ((e.ctrlKey || e.metaKey) && e.key === "d" && status === "ready") { e.preventDefault(); handleDownload(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [status, url]);
 
   const isValidYT = u => /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)/.test(u);
 
@@ -238,41 +316,113 @@ function DownloadTab({ theme, banner }) {
     }
   };
 
+  // ── REAL download with SSE progress ──
   const handleDownload = () => {
+    // Close any existing SSE connection
+    if (eventSourceRef.current) eventSourceRef.current.close();
+
     setStatus("downloading");
+    setProgress({ percent: 0, speed: "", eta: "", statusMsg: "Connecting to server…" });
+
     const params = new URLSearchParams({
       url, format, quality: quality.value, type: mediaType,
       ...(trimEnabled && { start: fmt(startTime), end: fmt(endTime) }),
     });
-    window.location.href = `${API_BASE}/api/download?${params}`;
-    setTimeout(() => setStatus("done"), 3000);
+
+    const es = new EventSource(`${API_BASE}/api/download-progress?${params}`);
+    eventSourceRef.current = es;
+
+    es.addEventListener("status", (e) => {
+      const d = JSON.parse(e.data);
+      setProgress(p => ({ ...p, statusMsg: d.message, percent: d.percent || p.percent }));
+    });
+
+    es.addEventListener("progress", (e) => {
+      const d = JSON.parse(e.data);
+      setProgress({ percent: d.percent, speed: d.speed, eta: d.eta, statusMsg: "Downloading…" });
+    });
+
+    es.addEventListener("done", (e) => {
+      const d = JSON.parse(e.data);
+      es.close();
+      // Trigger actual file download
+      window.location.href = `${API_BASE}/api/file/${d.token}`;
+      setLastDownload({ fileName: d.fileName, sizeMB: d.sizeMB });
+      setStatus("done");
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    });
+
+    es.addEventListener("error", (e) => {
+      es.close();
+      try {
+        const d = JSON.parse(e.data);
+        setErrorMsg(d.message);
+      } catch {
+        setErrorMsg("Download failed. Please try again.");
+      }
+      setStatus("error");
+    });
+
+    es.onerror = () => {
+      es.close();
+      if (status !== "done") {
+        setErrorMsg("Connection lost. Please try again.");
+        setStatus("error");
+      }
+    };
   };
 
-  const reset = () => { setUrl(""); setStatus("idle"); setVideoInfo(null); setErrorMsg(""); setTrimEnabled(false); };
+  // ── Reset ONLY the download state — keeps URL, video info, settings intact ──
+  const resetDownload = () => {
+    if (eventSourceRef.current) eventSourceRef.current.close();
+    setStatus("ready");
+    setProgress({ percent: 0, speed: "", eta: "", statusMsg: "Starting…" });
+    setErrorMsg("");
+  };
+
+  // ── Full reset ────────────────────────────────────────────────────────────────
+  const resetAll = () => {
+    if (eventSourceRef.current) eventSourceRef.current.close();
+    setUrl(""); setStatus("idle"); setVideoInfo(null);
+    setErrorMsg(""); setTrimEnabled(false); setLastDownload(null);
+    setProgress({ percent: 0, speed: "", eta: "", statusMsg: "Starting…" });
+  };
 
   return (
     <div style={{ maxWidth:640, margin:"0 auto", paddingBottom:40 }}>
+      {showConfetti && <Confetti />}
+
       {banner && (
         <div style={{ background:theme.accent2Soft, border:`1px solid ${theme.accent2}44`, borderRadius:12, padding:"10px 16px", marginBottom:16, color:theme.accent2, fontSize:13, fontWeight:600 }}>
           📢 {banner}
         </div>
       )}
 
-      <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:16, padding:24, marginBottom:20, boxShadow:`0 4px 40px ${theme.accent}0a` }}>
+      {/* Keyboard shortcut hints */}
+      <div style={{ display:"flex", gap:12, marginBottom:16, flexWrap:"wrap" }}>
+        <span style={{ fontSize:11, color:theme.textMuted }}>⌨️ <kbd style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:4, padding:"1px 5px", fontSize:10 }}>Enter</kbd> to Analyze</span>
+        <span style={{ fontSize:11, color:theme.textMuted }}><kbd style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:4, padding:"1px 5px", fontSize:10 }}>Ctrl+D</kbd> to Download</span>
+      </div>
+
+      {/* URL Input */}
+      <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:16, padding:24, marginBottom:20 }}>
         <label style={{ display:"block", fontSize:11, fontWeight:800, letterSpacing:2.5, color:theme.accent, marginBottom:12, textTransform:"uppercase" }}>YouTube URL</label>
         <div style={{ display:"flex", gap:10 }}>
-          <input value={url} onChange={e=>{setUrl(e.target.value);if(status!=="idle")setStatus("idle");setErrorMsg("");}}
+          <input value={url} onChange={e=>{setUrl(e.target.value); setErrorMsg(""); if(status==="error")setStatus("idle");}}
             placeholder="https://youtube.com/watch?v=..."
-            onKeyDown={e=>e.key==="Enter"&&handleAnalyze()}
+            onKeyDown={e=>e.key==="Enter"&&status==="idle"&&url&&handleAnalyze()}
             style={{ flex:1, background:theme.surface, border:`1.5px solid ${status==="error"?theme.danger:theme.border}`, borderRadius:10, padding:"12px 16px", color:theme.text, fontSize:14, fontFamily:"monospace", outline:"none" }} />
-          <button onClick={handleAnalyze} disabled={!url||status==="analyzing"}
-            style={{ background:status==="analyzing"?theme.accentSoft:theme.accent, border:"none", borderRadius:10, padding:"12px 20px", color:"#fff", fontWeight:700, fontSize:13, cursor:status==="analyzing"?"default":"pointer", display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap", fontFamily:"inherit", boxShadow:status!=="analyzing"?`0 0 20px ${theme.accentGlow}`:"none" }}>
+          <button onClick={handleAnalyze} disabled={!url||status==="analyzing"||status==="downloading"}
+            style={{ background:status==="analyzing"?theme.accentSoft:theme.accent, border:"none", borderRadius:10, padding:"12px 20px", color:status==="analyzing"?theme.accent:"#fff", fontWeight:700, fontSize:13, cursor:(status==="analyzing"||status==="downloading")?"default":"pointer", display:"flex", alignItems:"center", gap:8, whiteSpace:"nowrap", fontFamily:"inherit", boxShadow:status==="idle"?`0 0 20px ${theme.accentGlow}`:"none" }}>
             {status==="analyzing" ? <><Spinner color={theme.accent}/> Analyzing…</> : "→ Analyze"}
           </button>
         </div>
-        {status==="error" && <p style={{ color:theme.danger, fontSize:12, marginTop:8 }}>⚠ {errorMsg}</p>}
+        {(status==="error") && <p style={{ color:theme.danger, fontSize:12, marginTop:8 }}>⚠ {errorMsg}</p>}
+        {videoInfo?.cached && <p style={{ color:theme.success, fontSize:11, marginTop:6 }}>⚡ Loaded from cache — instant!</p>}
       </div>
 
+      {/* Video Info */}
       {videoInfo && (
         <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:16, padding:20, marginBottom:20, display:"flex", gap:16, alignItems:"flex-start" }}>
           {videoInfo.thumbnail && <img src={videoInfo.thumbnail} alt="thumb" style={{ width:120, height:68, borderRadius:8, objectFit:"cover", flexShrink:0 }} onError={e=>{e.target.style.display="none";}} />}
@@ -284,12 +434,13 @@ function DownloadTab({ theme, banner }) {
         </div>
       )}
 
+      {/* Format & Quality — always visible once analyzed, even after download */}
       {videoInfo && (
         <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:16, padding:24, marginBottom:20 }}>
           <div style={{ display:"flex", background:theme.surface, borderRadius:10, padding:4, marginBottom:20, width:"fit-content" }}>
             {["video","audio"].map(t=>(
-              <button key={t} onClick={()=>setMediaType(t)}
-                style={{ background:mediaType===t?theme.accent:"transparent", border:"none", borderRadius:8, padding:"8px 24px", color:mediaType===t?"#fff":theme.textMuted, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+              <button key={t} onClick={()=>{ if(status!=="downloading") setMediaType(t); }}
+                style={{ background:mediaType===t?theme.accent:"transparent", border:"none", borderRadius:8, padding:"8px 24px", color:mediaType===t?"#fff":theme.textMuted, fontWeight:700, fontSize:13, cursor:status==="downloading"?"default":"pointer", fontFamily:"inherit" }}>
                 {t==="video"?"🎬 Video":"🎵 Audio"}
               </button>
             ))}
@@ -299,14 +450,14 @@ function DownloadTab({ theme, banner }) {
               <label style={{ display:"block", fontSize:11, fontWeight:700, letterSpacing:1.5, color:theme.textMuted, marginBottom:8, textTransform:"uppercase" }}>Format</label>
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {formats.map(f=>(
-                  <button key={f} onClick={()=>setFormat(f)}
-                    style={{ background:format===f?theme.accentSoft:theme.surface, border:`1.5px solid ${format===f?theme.accent:theme.border}`, borderRadius:8, padding:"7px 14px", color:format===f?theme.accent:theme.textSub, fontWeight:700, fontSize:12, cursor:"pointer", fontFamily:"inherit", textTransform:"uppercase" }}>.{f}</button>
+                  <button key={f} onClick={()=>{ if(status!=="downloading") setFormat(f); }}
+                    style={{ background:format===f?theme.accentSoft:theme.surface, border:`1.5px solid ${format===f?theme.accent:theme.border}`, borderRadius:8, padding:"7px 14px", color:format===f?theme.accent:theme.textSub, fontWeight:700, fontSize:12, cursor:status==="downloading"?"default":"pointer", fontFamily:"inherit", textTransform:"uppercase" }}>.{f}</button>
                 ))}
               </div>
             </div>
             <div>
               <label style={{ display:"block", fontSize:11, fontWeight:700, letterSpacing:1.5, color:theme.textMuted, marginBottom:8, textTransform:"uppercase" }}>Quality</label>
-              <select value={quality.value} onChange={e=>setQuality(qualities.find(q=>q.value===e.target.value))}
+              <select value={quality.value} onChange={e=>{ if(status!=="downloading") setQuality(qualities.find(q=>q.value===e.target.value)); }}
                 style={{ width:"100%", background:theme.surface, border:`1.5px solid ${theme.border}`, borderRadius:8, padding:"10px 14px", color:theme.text, fontSize:13, fontFamily:"inherit", outline:"none" }}>
                 {qualities.map(q=><option key={q.value} value={q.value}>{q.label}</option>)}
               </select>
@@ -315,30 +466,76 @@ function DownloadTab({ theme, banner }) {
         </div>
       )}
 
-      {videoInfo && videoInfo.duration > 0 && (status==="ready"||status==="downloading"||status==="done") && (
+      {/* Trim Panel */}
+      {videoInfo && videoInfo.duration > 0 && status !== "downloading" && (
         <TrimPanel theme={theme} duration={videoInfo.duration} startTime={startTime} endTime={endTime}
           onStartChange={setStartTime} onEndChange={setEndTime} enabled={trimEnabled} onToggle={()=>setTrimEnabled(t=>!t)} />
       )}
 
-      {(status==="ready"||status==="downloading"||status==="done") && (
+      {/* Download Section */}
+      {videoInfo && (
         <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:16, padding:24 }}>
-          {status==="ready" && (
-            <button onClick={handleDownload} style={{ width:"100%", background:theme.accent, border:"none", borderRadius:12, padding:16, color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit", boxShadow:`0 0 30px ${theme.accentGlow}` }}>
-              {trimEnabled?`✂️ DOWNLOAD · ${fmt(startTime)} → ${fmt(endTime)}`:`↓ DOWNLOAD ${format.toUpperCase()} · ${quality.label}`}
+
+          {/* ── Ready to download ── */}
+          {(status==="ready") && (
+            <button onClick={handleDownload}
+              style={{ width:"100%", background:theme.accent, border:"none", borderRadius:12, padding:16, color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer", fontFamily:"inherit", boxShadow:`0 0 30px ${theme.accentGlow}`, transition:"transform 0.1s" }}
+              onMouseDown={e=>e.currentTarget.style.transform="scale(0.98)"}
+              onMouseUp={e=>e.currentTarget.style.transform="scale(1)"}>
+              {trimEnabled ? `✂️ DOWNLOAD · ${fmt(startTime)} → ${fmt(endTime)}` : `↓ DOWNLOAD ${format.toUpperCase()} · ${quality.label}`}
+              <span style={{ display:"block", fontSize:11, fontWeight:500, opacity:0.8, marginTop:3 }}>Ctrl+D</span>
             </button>
           )}
+
+          {/* ── Downloading with real progress ── */}
           {status==="downloading" && (
-            <div style={{ textAlign:"center", padding:"8px 0" }}>
-              <Spinner color={theme.accent} size={24} />
-              <p style={{ color:theme.textSub, fontSize:13, marginTop:12 }}>Starting download… check your browser downloads bar</p>
+            <ProgressBar
+              percent={progress.percent}
+              speed={progress.speed}
+              eta={progress.eta}
+              status={progress.statusMsg}
+              theme={theme}
+            />
+          )}
+
+          {/* ── Done ── */}
+          {status==="done" && (
+            <div>
+              <div style={{ textAlign:"center", marginBottom:20 }}>
+                <div style={{ fontSize:48, marginBottom:8 }}>✅</div>
+                <p style={{ color:theme.success, fontWeight:800, fontSize:18, margin:"0 0 4px" }}>Download Complete!</p>
+                {lastDownload && (
+                  <p style={{ color:theme.textMuted, fontSize:13, margin:"0 0 4px" }}>
+                    {lastDownload.fileName} · {lastDownload.sizeMB} MB
+                  </p>
+                )}
+                <p style={{ color:theme.textMuted, fontSize:12 }}>Check your browser's download bar</p>
+              </div>
+
+              {/* ── Download Again (same video, change settings) ── */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                <button onClick={resetDownload}
+                  style={{ background:theme.accentSoft, border:`1.5px solid ${theme.accent}44`, borderRadius:12, padding:"12px 16px", color:theme.accent, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+                  ↺ Download Again
+                  <span style={{ display:"block", fontSize:10, fontWeight:400, opacity:0.8, marginTop:2 }}>Same video, change settings</span>
+                </button>
+                <button onClick={resetAll}
+                  style={{ background:theme.surface, border:`1.5px solid ${theme.border}`, borderRadius:12, padding:"12px 16px", color:theme.textSub, fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+                  + New Download
+                  <span style={{ display:"block", fontSize:10, fontWeight:400, opacity:0.8, marginTop:2 }}>Enter a different URL</span>
+                </button>
+              </div>
             </div>
           )}
-          {status==="done" && (
+
+          {/* ── Error with retry ── */}
+          {status==="error" && videoInfo && (
             <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:40, marginBottom:8 }}>✅</div>
-              <p style={{ color:theme.success, fontWeight:700, fontSize:16, margin:"0 0 4px" }}>Download started!</p>
-              <p style={{ color:theme.textMuted, fontSize:13, margin:"0 0 16px" }}>Check your browser's download bar</p>
-              <button onClick={reset} style={{ background:theme.surface, border:`1px solid ${theme.border}`, borderRadius:10, padding:"10px 24px", color:theme.textSub, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>Download Another</button>
+              <p style={{ color:theme.danger, fontWeight:700, fontSize:15, margin:"0 0 8px" }}>⚠ {errorMsg}</p>
+              <button onClick={resetDownload}
+                style={{ background:theme.accentSoft, border:`1px solid ${theme.accent}44`, borderRadius:10, padding:"10px 24px", color:theme.accent, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+                ↺ Try Again
+              </button>
             </div>
           )}
         </div>
@@ -406,7 +603,7 @@ function SettingsTab({ theme, themeMode, setThemeMode }) {
       <section style={{ marginBottom:32 }}>
         <h3 style={{ color:theme.textMuted, fontSize:11, fontWeight:700, letterSpacing:2, textTransform:"uppercase", marginBottom:16 }}>About</h3>
         <div style={{ background:theme.card, border:`1px solid ${theme.border}`, borderRadius:14, overflow:"hidden" }}>
-          {[["App","Kingo YT Downloader"],["Version","2.0.0"],["Backend",API_BASE],["Build","2026.03.08"]].map(([k,v],i,a)=>(
+          {[["App","Kingo YT Downloader"],["Version","2.0.0"],["Backend",API_BASE],["Build","2026.03.15"]].map(([k,v],i,a)=>(
             <div key={k} style={{ display:"flex", justifyContent:"space-between", padding:"14px 20px", borderBottom:i<a.length-1?`1px solid ${theme.border}`:"none", gap:4 }}>
               <span style={{ color:theme.textMuted, fontSize:13 }}>{k}</span>
               <span style={{ color:theme.text, fontWeight:600, fontSize:13, wordBreak:"break-all" }}>{v}</span>
@@ -420,7 +617,9 @@ function SettingsTab({ theme, themeMode, setThemeMode }) {
 }
 
 export default function App() {
-  const [themeMode, setThemeMode] = useState("dark");
+  // Persist theme preference in localStorage
+  const [themeMode, setThemeModeRaw] = useState(() => localStorage.getItem("kingo_theme") || "dark");
+  const setThemeMode = (m) => { setThemeModeRaw(m); localStorage.setItem("kingo_theme", m); };
   const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
   const resolved = themeMode === "system" ? (systemDark ? "dark" : "light") : themeMode;
   const theme = themes[resolved];
