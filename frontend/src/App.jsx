@@ -772,7 +772,7 @@ function SettingsTab({ theme, themeMode, setThemeMode }) {
 export default function App() {
   const [themeMode, setThemeModeRaw] = useState(() => localStorage.getItem("kingo_theme") || "dark");
   const setThemeMode = (m) => { setThemeModeRaw(m); localStorage.setItem("kingo_theme", m); };
-  const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  const systemDark = (() => { try { return window.matchMedia?.("(prefers-color-scheme: dark)").matches || false; } catch { return false; } })();
   const resolved = themeMode === "system" ? (systemDark ? "dark" : "light") : themeMode;
   const theme = themes[resolved];
   const [activeTab, setActiveTab] = useState("download");
