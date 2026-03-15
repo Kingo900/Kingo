@@ -185,18 +185,25 @@ function PWAInstallBanner({ theme }) {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) return;
-    if (localStorage.getItem("kingo_pwa_dismissed")) return;
+  if (window.matchMedia("(display-mode: standalone)").matches) return;
+  if (localStorage.getItem("kingo_pwa_dismissed")) return;
 
-    const handler = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShow(true);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
+  // If prompt was already fired before React loaded, it's stored on window
+  if (window.__pwaPrompt) {
+    setDeferredPrompt(window.__pwaPrompt);
+    setShow(true);
+    return;
+  }
+
+  const handler = (e) => {
+    e.preventDefault();
+    window.__pwaPrompt = e;
+    setDeferredPrompt(e);
+    setShow(true);
+  };
+  window.addEventListener("beforeinstallprompt", handler);
+  return () => window.removeEventListener("beforeinstallprompt", handler);
+}, []);
 
   const install = async () => {
     if (!deferredPrompt) return;
