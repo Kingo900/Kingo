@@ -21,6 +21,13 @@
   <body style="margin:0">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+   <script>
+      // Catch PWA prompt early before React loads
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.__pwaPrompt = e;
+      });
+    </script>
     <script>
       // Register service worker for PWA
       if ('serviceWorker' in navigator) {
@@ -29,5 +36,6 @@
         });
       }
     </script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
