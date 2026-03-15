@@ -1,4 +1,4 @@
-const CACHE_NAME = "kingo-v2";
+const CACHE_NAME = "kingo-v3";
 const STATIC_ASSETS = ["/", "/index.html"];
 
 self.addEventListener("install", (e) => {
