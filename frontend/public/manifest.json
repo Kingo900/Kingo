@@ -1,32 +1,19 @@
 {
   "name": "Kingo YT Downloader",
   "short_name": "Kingo",
-  "description": "Fast, free YouTube video & audio downloader with trim support",
+  "description": "Fast, free YouTube video & audio downloader",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#080810",
   "theme_color": "#7c3aed",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable" }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshot.png",
-      "sizes": "640x1136",
-      "type": "image/png"
-    }
-  ],
-  "categories": ["utilities", "productivity"]
+  "categories": ["utilities", "productivity"],
+  "shortcuts": [
+    { "name": "Download Video", "url": "/", "description": "Download a YouTube video" }
+  ]
 }
