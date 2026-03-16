@@ -5,37 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Kingo YT Downloader</title>
 
-    <!-- PWA -->
+    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Theme -->
     <meta name="theme-color" content="#7c3aed" />
+    <meta name="background-color" content="#080810" />
+
+    <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Kingo" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
 
     <!-- SEO -->
-    <meta name="description" content="Fast, free YouTube video & audio downloader. Download MP4, MP3, and more with trim support." />
+    <meta name="description" content="Fast, free YouTube video & audio downloader. Download MP4, MP3, and more with trim, playlist, and batch support." />
+    <meta name="keywords" content="youtube downloader, mp4, mp3, free, playlist, batch" />
 
-    <!-- Icon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c3aed'/><text y='.9em' font-size='70' x='15' font-weight='bold' fill='white'>K</text></svg>" />
+    <!-- Open Graph -->
+    <meta property="og:title" content="Kingo YT Downloader" />
+    <meta property="og:description" content="Fast, free YouTube downloader with trim, playlist & batch support" />
+    <meta property="og:type" content="website" />
+
+    <!-- Favicon: inline SVG -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%237c3aed'/><text y='.75em' font-size='68' x='14' font-weight='900' fill='white'>K</text></svg>" />
   </head>
-  <body style="margin:0">
+  <body style="margin:0;background:#080810">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-   <script>
-      // Catch PWA prompt early before React loads
+
+    <!-- Catch PWA install prompt before React loads -->
+    <script>
       window.addEventListener("beforeinstallprompt", (e) => {
         e.preventDefault();
         window.__pwaPrompt = e;
       });
     </script>
+
+    <!-- Register service worker -->
     <script>
-      // Register service worker for PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {});
+          navigator.serviceWorker.register('/sw.js')
+            .then(() => console.log('SW registered'))
+            .catch(() => {});
         });
       }
     </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
