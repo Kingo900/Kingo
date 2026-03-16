@@ -53,14 +53,11 @@ function getCookieArgs() {
 async function validateCookies() {
   return new Promise((resolve) => {
     if (!fs.existsSync(COOKIES_PATH)) return resolve({ valid: false, reason: "No cookies file found" });
-    const stat = fs.statSync(COOKIES_PATH);
-    if (stat.size < 100) return resolve({ valid: false, reason: "Cookies file is empty" });
-    const content = fs.readFileSync(COOKIES_PATH, "utf8");
-    if (!content.includes("youtube.com")) return resolve({ valid: false, reason: "No YouTube cookies found in file" });
-    // Check age — warn if older than 21 days
-    const agedays = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60 * 24);
-    if (agedays > 21) return resolve({ valid: true, reason: `Cookies valid but ${Math.floor(agedays)} days old — consider refreshing` });
-    resolve({ valid: true, reason: `Cookies valid (${Math.floor(agedays)} days old, ${(stat.size/1024).toFixed(1)} KB)` });
+    const args = [...getCookieArgs(), "--dump-json", "--no-playlist", "--js-runtimes", `node:${NODE_PATH}`, "https://youtube.com/watch?v=dQw4w9WgXcQ"];
+    exec(`yt-dlp ${args.join(" ")}`, { timeout: 20000 }, (err, stdout, stderr) => {
+      if (err || stderr?.includes("Sign in to confirm")) return resolve({ valid: false, reason: "Cookies expired or invalid" });
+      resolve({ valid: true, reason: "Cookies are working" });
+    });
   });
 }
 
@@ -345,7 +342,20 @@ app.get("/api/info", async (req, res) => {
     try {
       const info = JSON.parse(stdout);
       if (store.settings.maxDuration && info.duration > store.settings.maxDuration) return res.status(400).json({ error:`Video too long (max ${store.settings.maxDuration/60} minutes).` });
-      const data = { title:info.title, channel:info.uploader||info.channel, duration:info.duration, thumbnail:info.thumbnail, view_count:info.view_count };
+      const formatSizes = {};
+      if (info.formats) {
+        const qMap = {2160:[],1440:[],1080:[],720:[],480:[],360:[],240:[]};
+        info.formats.forEach(f => {
+          if (f.height && qMap[f.height]!==undefined) {
+            const s = f.filesize || f.filesize_approx;
+            if (s) qMap[f.height].push(s);
+          }
+        });
+        Object.entries(qMap).forEach(([q,sizes]) => { if(sizes.length) formatSizes[q]=Math.max(...sizes); });
+        const audioFmts = info.formats.filter(f=>f.vcodec==="none"&&(f.filesize||f.filesize_approx));
+        if (audioFmts.length) formatSizes["audio"] = Math.max(...audioFmts.map(f=>f.filesize||f.filesize_approx||0));
+      }
+      const data = { title:info.title, channel:info.uploader||info.channel, duration:info.duration, thumbnail:info.thumbnail, view_count:info.view_count, formatSizes };
       setCache(safeUrl, data);
       res.json(data);
     } catch(e) { logError(safeUrl,"Parse error: "+e.message,ip); res.status(500).json({error:"Failed to parse video info"}); }
