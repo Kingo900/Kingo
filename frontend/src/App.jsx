@@ -435,17 +435,49 @@ function PlaylistTab({theme}) {
       {/* Playlist loaded */}
       {playlist && (
         <>
-          {/* Info bar */}
-          <div style={{background:theme.card,border:`1px solid ${theme.border}`,borderRadius:14,padding:"14px 20px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-            <div>
-              <p style={{color:theme.text,fontWeight:700,fontSize:15,margin:"0 0 2px"}}>🎬 Playlist loaded</p>
-              <p style={{color:theme.textMuted,fontSize:12,margin:0}}>{playlist.total} videos · {selected.size} selected</p>
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={selectAll} style={{background:theme.accentSoft,border:`1px solid ${theme.accent}44`,borderRadius:8,padding:"6px 12px",color:theme.accent,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>All</button>
-              <button onClick={selectNone} style={{background:theme.surface,border:`1px solid ${theme.border}`,borderRadius:8,padding:"6px 12px",color:theme.textSub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>None</button>
-            </div>
-          </div>
+         {/* Info bar */}
+<div style={{background:theme.card,border:`1px solid ${theme.border}`,borderRadius:14,padding:"14px 20px",marginBottom:16}}>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:12}}>
+    <div>
+      <p style={{color:theme.text,fontWeight:700,fontSize:15,margin:"0 0 2px"}}>🎬 Playlist loaded</p>
+      <p style={{color:theme.textMuted,fontSize:12,margin:0}}>{playlist.total} videos · <strong style={{color:theme.accent}}>{selected.size} selected</strong></p>
+    </div>
+    {/* Master checkbox */}
+    <div onClick={()=>selected.size===playlist.videos.length?selectNone():selectAll()}
+      style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"8px 14px",background:theme.surface,borderRadius:10,border:`1.5px solid ${selected.size===playlist.videos.length?theme.accent:theme.border}`,transition:"all 0.2s"}}>
+      <div style={{width:20,height:20,borderRadius:5,border:`2px solid ${selected.size===playlist.videos.length?theme.accent:selected.size>0?theme.accent:theme.border}`,background:selected.size===playlist.videos.length?theme.accent:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",flexShrink:0}}>
+        {selected.size===playlist.videos.length && <span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
+        {selected.size>0&&selected.size<playlist.videos.length && <span style={{color:theme.accent,fontSize:14,fontWeight:900,lineHeight:1}}>—</span>}
+      </div>
+      <span style={{color:selected.size===playlist.videos.length?theme.accent:theme.textSub,fontSize:13,fontWeight:600,whiteSpace:"nowrap"}}>
+        {selected.size===playlist.videos.length?"Deselect All":"Select All"}
+      </span>
+    </div>
+  </div>
+
+  {/* Quick filter buttons */}
+  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+    <button onClick={selectAll}
+      style={{background:theme.accentSoft,border:`1px solid ${theme.accent}44`,borderRadius:20,padding:"5px 14px",color:theme.accent,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+      ✓ All ({playlist.videos.length})
+    </button>
+    <button onClick={selectNone}
+      style={{background:theme.surface,border:`1px solid ${theme.border}`,borderRadius:20,padding:"5px 14px",color:theme.textSub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+      ✗ None
+    </button>
+    <button onClick={()=>setSelected(new Set(playlist.videos.filter((_,i)=>i<10).map(v=>v.id)))}
+      style={{background:theme.surface,border:`1px solid ${theme.border}`,borderRadius:20,padding:"5px 14px",color:theme.textSub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+      First 10
+    </button>
+    <button onClick={()=>setSelected(new Set(playlist.videos.filter((_,i)=>i<25).map(v=>v.id)))}
+      style={{background:theme.surface,border:`1px solid ${theme.border}`,borderRadius:20,padding:"5px 14px",color:theme.textSub,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+      First 25
+    </button>
+    <span style={{marginLeft:"auto",color:theme.textMuted,fontSize:12,display:"flex",alignItems:"center"}}>
+      {selected.size} / {playlist.videos.length} selected
+    </span>
+  </div>
+</div>
 
           {/* Format settings */}
           <div style={{background:theme.card,border:`1px solid ${theme.border}`,borderRadius:14,padding:20,marginBottom:16}}>
