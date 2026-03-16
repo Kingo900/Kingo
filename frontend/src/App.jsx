@@ -113,7 +113,7 @@ function PasswordGate({onAuth,t}){
       <div style={{position:"absolute",inset:0,background:t.gradientBg,pointerEvents:"none"}}/>
       <div style={{width:360,animation:"fadeUp 0.4s ease"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,color:"#fff",fontFamily:"var(--display)",fontWeight:800,margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow)`}}>K</div>
+          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,color:"#fff",fontFamily:"var(--display)",fontWeight:800,margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow}`}}>K</div>
           <h1 style={{fontFamily:"var(--display)",color:t.text,fontSize:26,fontWeight:800,marginBottom:6}}>Kingo YTDownloader</h1>
           <p style={{color:t.textMuted,fontSize:13}}>Enter your password to continue</p>
         </div>
