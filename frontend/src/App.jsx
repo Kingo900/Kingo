@@ -113,9 +113,7 @@ function PasswordGate({onAuth,t}){
       <div style={{position:"absolute",inset:0,background:t.gradientBg,pointerEvents:"none"}}/>
       <div style={{width:360,animation:"fadeUp 0.4s ease"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow}`,overflow:"hidden",padding:8}}>
-              <img src="/logo.png" alt="Kingo" style={{width:"100%",height:"100%",objectFit:"contain",filter:"invert(1) brightness(2)"}}/>
-            </div>
+          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,color:"#fff",fontFamily:"var(--display)",fontWeight:800,margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow)`}}>K</div>
           <h1 style={{fontFamily:"var(--display)",color:t.text,fontSize:26,fontWeight:800,marginBottom:6}}>Kingo YTDownloader</h1>
           <p style={{color:t.textMuted,fontSize:13}}>Enter your password to continue</p>
         </div>
@@ -396,7 +394,7 @@ export default function App(){
         <div style={{maxWidth:920,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:58,gap:12}}>
           {/* Logo */}
           <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <img src="/logo.png" alt="Kingo" style={{width:34,height:34,objectFit:"contain",filter:t.bg==="#06060f"?"invert(1) brightness(2)":"none",transition:"filter 0.3s"}} />
+            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"var(--display)",fontWeight:800,fontSize:17,boxShadow:`0 0 20px ${t.accentGlow}`}}>K</div>
             <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
               <span style={{fontFamily:"var(--display)",fontSize:15,fontWeight:800,color:t.text,letterSpacing:-0.3}}>Kingo</span>
               <span style={{fontFamily:"var(--display)",fontSize:10,fontWeight:600,color:t.accentText,letterSpacing:0.5,textTransform:"uppercase"}}>YTDownloader</span>
@@ -428,7 +426,7 @@ export default function App(){
           <div className="fade-up">
             <div style={{textAlign:"center",marginBottom:36}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:14}}>
-                <img src="/logo.png" alt="Kingo" style={{width:52,height:52,objectFit:"contain",filter:t.bg==="#06060f"?"invert(1) brightness(2)":"none"}}/>
+                <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,color:"#fff",fontFamily:"var(--display)",fontWeight:800,boxShadow:`0 0 30px ${t.accentGlow}`}}>K</div>
                 <div style={{textAlign:"left"}}>
                   <h1 style={{fontFamily:"var(--display)",fontSize:clamp(24,4,34),fontWeight:900,color:t.text,letterSpacing:-0.5,lineHeight:1,margin:0}}>Kingo</h1>
                   <p style={{color:t.accentText,fontWeight:700,fontSize:13,letterSpacing:1,textTransform:"uppercase",margin:0}}>YTDownloader</p>
