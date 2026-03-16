@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const APP_PASSWORD = import.meta.env.VITE_APP_PASSWORD || "";
 const AUTH_KEY = "kingo_auth_v1";
 
-const FONT_LINK = "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap";
+const FONT_LINK = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap";
 
 const themes = {
   dark: {
@@ -71,7 +71,7 @@ function estimateSize(videoInfo,mediaType,qualityValue){
 const CSS=`
 @import url('${FONT_LINK}');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{--font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;--display:'Syne',sans-serif;}
+:root{--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;--display:'Inter',system-ui,sans-serif;}
 body{font-family:var(--font);-webkit-font-smoothing:antialiased;}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
@@ -113,8 +113,10 @@ function PasswordGate({onAuth,t}){
       <div style={{position:"absolute",inset:0,background:t.gradientBg,pointerEvents:"none"}}/>
       <div style={{width:360,animation:"fadeUp 0.4s ease"}}>
         <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:34,color:"#fff",fontFamily:"var(--display)",fontWeight:800,margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow}`}}>K</div>
-          <h1 style={{fontFamily:"var(--display)",color:t.text,fontSize:26,fontWeight:800,marginBottom:6}}>Kingo</h1>
+          <div style={{width:68,height:68,borderRadius:18,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:`0 0 60px ${t.accentGlow}`,overflow:"hidden",padding:8}}>
+              <img src="/logo.png" alt="Kingo" style={{width:"100%",height:"100%",objectFit:"contain",filter:"invert(1) brightness(2)"}}/>
+            </div>
+          <h1 style={{fontFamily:"var(--display)",color:t.text,fontSize:26,fontWeight:800,marginBottom:6}}>Kingo YTDownloader</h1>
           <p style={{color:t.textMuted,fontSize:13}}>Enter your password to continue</p>
         </div>
         <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,padding:28,boxShadow:`0 20px 80px ${t.accentGlow}`,animation:shake?"shake 0.5s ease":undefined}}>
@@ -394,8 +396,11 @@ export default function App(){
         <div style={{maxWidth:920,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:58,gap:12}}>
           {/* Logo */}
           <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"var(--display)",fontWeight:800,fontSize:17,boxShadow:`0 0 20px ${t.accentGlow}`}}>K</div>
-            <span style={{fontFamily:"var(--display)",fontSize:16,fontWeight:800,color:t.text,letterSpacing:-0.3}}>Kingo</span>
+            <img src="/logo.png" alt="Kingo" style={{width:34,height:34,objectFit:"contain",filter:t.bg==="#06060f"?"invert(1) brightness(2)":"none",transition:"filter 0.3s"}} />
+            <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
+              <span style={{fontFamily:"var(--display)",fontSize:15,fontWeight:800,color:t.text,letterSpacing:-0.3}}>Kingo</span>
+              <span style={{fontFamily:"var(--display)",fontSize:10,fontWeight:600,color:t.accentText,letterSpacing:0.5,textTransform:"uppercase"}}>YTDownloader</span>
+            </div>
           </div>
           {/* Nav */}
           <nav style={{display:"flex",gap:2,overflowX:"auto"}}>
@@ -422,9 +427,15 @@ export default function App(){
         {tab==="download"&&(
           <div className="fade-up">
             <div style={{textAlign:"center",marginBottom:36}}>
-              <h2 style={{fontFamily:"var(--display)",fontSize:clamp(28,5,40),fontWeight:800,color:t.text,letterSpacing:-1,lineHeight:1.15,marginBottom:10}}>
-                Download anything<br/>
-                <span style={{background:`linear-gradient(135deg,${t.accentBright},#a855f7,#ec4899)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>from YouTube</span>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:14}}>
+                <img src="/logo.png" alt="Kingo" style={{width:52,height:52,objectFit:"contain",filter:t.bg==="#06060f"?"invert(1) brightness(2)":"none"}}/>
+                <div style={{textAlign:"left"}}>
+                  <h1 style={{fontFamily:"var(--display)",fontSize:clamp(24,4,34),fontWeight:900,color:t.text,letterSpacing:-0.5,lineHeight:1,margin:0}}>Kingo</h1>
+                  <p style={{color:t.accentText,fontWeight:700,fontSize:13,letterSpacing:1,textTransform:"uppercase",margin:0}}>YTDownloader</p>
+                </div>
+              </div>
+              <h2 style={{fontFamily:"var(--display)",fontSize:clamp(20,3,28),fontWeight:700,color:t.text,letterSpacing:-0.5,lineHeight:1.3,marginBottom:8}}>
+                Download <span style={{background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>YouTube</span> videos instantly
               </h2>
               <p style={{color:t.textMuted,fontSize:14}}>Video · Audio · Playlists · Subtitles · Fast &amp; Free</p>
             </div>
