@@ -2,11 +2,26 @@ services:
   - type: web
     name: kingo-api
     env: node
-    buildCommand: npm install && pip install yt-dlp
+    buildCommand: npm install && pip install yt-dlp --break-system-packages
     startCommand: node server.js
     envVars:
       - key: PORT
         value: 3001
       - key: ADMIN_SECRET
         generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: https://kingo-three.vercel.app
+      - key: FRONTEND_URL
+        value: https://kingo-three.vercel.app
+      # Optional: fill these in for email alerts
+      - key: SMTP_HOST
+        value: ""
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        value: ""
+      - key: SMTP_PASS
+        value: ""
+      - key: SMTP_FROM
+        value: ""
     plan: free
