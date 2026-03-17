@@ -39,30 +39,42 @@ try {
   console.log("✅ Node path:", NODE_PATH);
 } catch { console.log("⚠️ Could not detect node path"); }
 
-// ── Cookies: auto-refresh mechanism ──────────────────────────────────────────
-const COOKIES_PATH = path.join(__dirname, "cookies.txt");
-let cookiesLastChecked = 0;
-const COOKIES_CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 hours
+// ── Per-platform cookies ──────────────────────────────────────────────────────
+const PLATFORMS = {
+  youtube:   { file:"cookies-youtube.txt",   domains:["youtube.com","google.com"], label:"YouTube" },
+  instagram: { file:"cookies-instagram.txt", domains:["instagram.com"],            label:"Instagram" },
+  tiktok:    { file:"cookies-tiktok.txt",    domains:["tiktok.com"],               label:"TikTok" },
+};
 
-function getCookieArgs() {
-  if (fs.existsSync(COOKIES_PATH)) return ["--cookies", COOKIES_PATH];
+function getCookiesPath(platform="youtube") {
+  const p = PLATFORMS[platform] || PLATFORMS.youtube;
+  return path.join(__dirname, p.file);
+}
+
+function getCookieArgs(platform="youtube") {
+  const cp = getCookiesPath(platform);
+  if (fs.existsSync(cp)) return ["--cookies", cp];
+  const legacy = path.join(__dirname, "cookies.txt");
+  if (platform==="youtube" && fs.existsSync(legacy)) return ["--cookies", legacy];
   return [];
 }
 
-// Check if cookies are still valid by testing a simple yt-dlp call
-async function validateCookies() {
-  return new Promise((resolve) => {
-    if (!fs.existsSync(COOKIES_PATH)) return resolve({ valid: false, reason: "No cookies file found" });
-    const stat = fs.statSync(COOKIES_PATH);
-    if (stat.size < 100) return resolve({ valid: false, reason: "Cookies file is empty" });
-    const content = fs.readFileSync(COOKIES_PATH, "utf8");
-    if (!content.includes(".youtube.com") && !content.includes("youtube") && !content.includes("google")) 
-      return resolve({ valid: false, reason: "No YouTube cookies found in file" });
-    const ageDays = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60 * 24);
-    if (ageDays > 21) return resolve({ valid: true, reason: `Cookies valid but ${Math.floor(ageDays)} days old — consider refreshing` });
-    resolve({ valid: true, reason: `Cookies valid (${Math.floor(ageDays)} days old, ${(stat.size/1024).toFixed(1)} KB)` });
-  });
+function validateCookiesSync(platform="youtube") {
+  const cp = getCookiesPath(platform);
+  const legacy = path.join(__dirname, "cookies.txt");
+  const filePath = fs.existsSync(cp) ? cp : (platform==="youtube" && fs.existsSync(legacy) ? legacy : null);
+  if (!filePath) return { valid:false, reason:"No cookies file found" };
+  const stat = fs.statSync(filePath);
+  if (stat.size < 100) return { valid:false, reason:"Cookies file is empty" };
+  const content = fs.readFileSync(filePath, "utf8");
+  const found = (PLATFORMS[platform]?.domains||[]).some(d => content.includes(d));
+  if (!found) return { valid:false, reason:`No ${PLATFORMS[platform]?.label} cookies found` };
+  const ageDays = (Date.now()-stat.mtimeMs)/(1000*60*60*24);
+  if (ageDays>21) return { valid:true, reason:`Valid but ${Math.floor(ageDays)} days old — refresh soon`, ageDays:Math.floor(ageDays), sizeKB:(stat.size/1024).toFixed(1) };
+  return { valid:true, reason:`Valid (${Math.floor(ageDays)} days old, ${(stat.size/1024).toFixed(1)} KB)`, ageDays:Math.floor(ageDays), sizeKB:(stat.size/1024).toFixed(1) };
 }
+
+async function validateCookies(platform="youtube") { return Promise.resolve(validateCookiesSync(platform)); }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 const store = {
@@ -118,7 +130,35 @@ setInterval(() => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function uid() { return crypto.randomBytes(6).toString("hex"); }
 function getIp(req) { return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown"; }
-function sanitizeUrl(url) { try { const u=new URL(url); if(!["youtube.com","www.youtube.com","youtu.be","m.youtube.com"].includes(u.hostname)) return null; return u.toString(); } catch { return null; } }
+
+const ALLOWED_HOSTS = {
+  youtube:   ["youtube.com","www.youtube.com","youtu.be","m.youtube.com","music.youtube.com"],
+  instagram: ["instagram.com","www.instagram.com"],
+  tiktok:    ["tiktok.com","www.tiktok.com","vm.tiktok.com","vt.tiktok.com"],
+};
+
+function detectPlatform(url) {
+  try {
+    const h = new URL(url).hostname.replace(/^www\./,"");
+    if (["youtube.com","youtu.be","m.youtube.com","music.youtube.com"].includes(h)) return "youtube";
+    if (["instagram.com"].includes(h)) return "instagram";
+    if (["tiktok.com","vm.tiktok.com","vt.tiktok.com"].includes(h)) return "tiktok";
+    return null;
+  } catch { return null; }
+}
+
+function sanitizeUrl(url, platform=null) {
+  try {
+    const u = new URL(url);
+    const allHosts = Object.values(ALLOWED_HOSTS).flat();
+    if (!allHosts.includes(u.hostname)) return null;
+    if (platform) {
+      const allowed = ALLOWED_HOSTS[platform] || [];
+      if (!allowed.includes(u.hostname)) return null;
+    }
+    return u.toString();
+  } catch { return null; }
+}
 
 function logError(url, message, ip="unknown") {
   const entry = { id:uid(), url, message, ip, timestamp:new Date().toISOString() };
@@ -153,8 +193,8 @@ function adminAuth(req,res,next) {
   next();
 }
 
-function buildYtdlpBaseArgs() {
-  return [...getCookieArgs(), "--js-runtimes", `node:${NODE_PATH}`, "--remote-components", "ejs:github"];
+function buildYtdlpBaseArgs(platform="youtube") {
+  return [...getCookieArgs(platform), "--js-runtimes", `node:${NODE_PATH}`, "--remote-components", "ejs:github"];
 }
 
 function sseSetup(res) {
@@ -322,59 +362,63 @@ setInterval(checkYtdlpVersion, 6 * 60 * 60 * 1000); // check every 6 hours
 app.get("/api/health", (req, res) => res.json({ status:"ok", version:"4.0.0", app:"Kingo YT Downloader", uptime:process.uptime() }));
 app.get("/api/banner", (req, res) => res.json({ message:store.settings.bannerMessage, maintenance:store.settings.maintenanceMode }));
 
-// ── Info ──────────────────────────────────────────────────────────────────────
+// ── Info (all platforms) ──────────────────────────────────────────────────────
 app.get("/api/info", async (req, res) => {
-  const { url } = req.query;
+  const { url, platform="youtube" } = req.query;
   const ip = getIp(req);
   if (!url) return res.status(400).json({ error:"URL is required" });
-
-  // Sanitize URL - only allow YouTube
   const safeUrl = sanitizeUrl(url);
-  if (!safeUrl) return res.status(400).json({ error:"Only YouTube URLs are allowed." });
-
+  if (!safeUrl) return res.status(400).json({ error:"URL not supported. Use YouTube, Instagram or TikTok." });
+  const detectedPlatform = detectPlatform(url) || platform;
   if (store.blocked.has(ip)) return res.status(403).json({ error:"Your IP has been blocked." });
   if (store.settings.maintenanceMode) return res.status(503).json({ error:"Kingo is under maintenance." });
-
-  const cached = getCached(safeUrl);
+  const cacheKey = `${detectedPlatform}:${safeUrl}`;
+  const cached = getCached(cacheKey);
   if (cached) return res.json({ ...cached, cached:true });
-
-  const baseArgs = buildYtdlpBaseArgs().join(" ");
+  const baseArgs = buildYtdlpBaseArgs(detectedPlatform).join(" ");
   const cmd = `yt-dlp --dump-json --no-playlist ${baseArgs} "${safeUrl}"`;
-  exec(cmd, { timeout:40000 }, (err, stdout, stderr) => {
-    if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch video info. The video may be unavailable." }); }
+  exec(cmd, { timeout:45000 }, (err, stdout, stderr) => {
+    if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch info. The content may be private or unavailable." }); }
     try {
       const info = JSON.parse(stdout);
-      if (store.settings.maxDuration && info.duration > store.settings.maxDuration) return res.status(400).json({ error:`Video too long (max ${store.settings.maxDuration/60} minutes).` });
+      if (detectedPlatform==="youtube" && store.settings.maxDuration && info.duration > store.settings.maxDuration) return res.status(400).json({ error:`Video too long (max ${store.settings.maxDuration/60} minutes).` });
       const formatSizes = {};
       if (info.formats) {
         const qMap = {2160:[],1440:[],1080:[],720:[],480:[],360:[],240:[]};
         info.formats.forEach(f => {
-          if (f.height && qMap[f.height]!==undefined) {
-            const s = f.filesize || f.filesize_approx;
-            if (s) qMap[f.height].push(s);
-          }
+          if (f.height && qMap[f.height]!==undefined) { const s=f.filesize||f.filesize_approx; if(s) qMap[f.height].push(s); }
         });
         Object.entries(qMap).forEach(([q,sizes]) => { if(sizes.length) formatSizes[q]=Math.max(...sizes); });
         const audioFmts = info.formats.filter(f=>f.vcodec==="none"&&(f.filesize||f.filesize_approx));
         if (audioFmts.length) formatSizes["audio"] = Math.max(...audioFmts.map(f=>f.filesize||f.filesize_approx||0));
       }
-      const data = { title:info.title, channel:info.uploader||info.channel, duration:info.duration, thumbnail:info.thumbnail, view_count:info.view_count, formatSizes };
-      setCache(safeUrl, data);
+      // Detect if it's a multi-image carousel (Instagram)
+      const isCarousel = info._type === "playlist" || (info.entries && info.entries.length > 1);
+      const mediaType = info.ext === "jpg" || info.ext === "png" || info.ext === "webp" ? "image" : "video";
+      const data = {
+        title: info.title, channel: info.uploader||info.channel,
+        duration: info.duration, thumbnail: info.thumbnail,
+        view_count: info.view_count, formatSizes,
+        platform: detectedPlatform, mediaType,
+        isCarousel, imageCount: info.entries?.length || null,
+        ext: info.ext,
+      };
+      setCache(cacheKey, data);
       res.json(data);
-    } catch(e) { logError(safeUrl,"Parse error: "+e.message,ip); res.status(500).json({error:"Failed to parse video info"}); }
+    } catch(e) { logError(safeUrl,"Parse error: "+e.message,ip); res.status(500).json({error:"Failed to parse info"}); }
   });
 });
 
-// ── Playlist ──────────────────────────────────────────────────────────────────
+// ── Playlist (YouTube only) ───────────────────────────────────────────────────
 app.get("/api/playlist", async (req, res) => {
   const { url } = req.query;
   const ip = getIp(req);
   if (!url) return res.status(400).json({ error:"URL is required" });
   const safeUrl = sanitizeUrl(url);
-  if (!safeUrl) return res.status(400).json({ error:"Only YouTube URLs are allowed." });
+  if (!safeUrl || detectPlatform(url)!=="youtube") return res.status(400).json({ error:"Only YouTube playlist URLs are allowed." });
   if (store.blocked.has(ip)) return res.status(403).json({ error:"Blocked." });
   if (store.settings.maintenanceMode) return res.status(503).json({ error:"Under maintenance." });
-  const baseArgs = buildYtdlpBaseArgs().join(" ");
+  const baseArgs = buildYtdlpBaseArgs("youtube").join(" ");
   const cmd = `yt-dlp --flat-playlist --dump-json ${baseArgs} "${safeUrl}"`;
   exec(cmd, { timeout:60000, maxBuffer:10*1024*1024 }, (err, stdout, stderr) => {
     if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch playlist." }); }
@@ -389,11 +433,10 @@ app.get("/api/playlist", async (req, res) => {
   });
 });
 
-// ── Download with SSE progress ────────────────────────────────────────────────
+// ── Download with SSE progress (all platforms) ───────────────────────────────
 app.get("/api/download-progress", async (req, res) => {
-  const { url, format="mp4", quality="1080", type="video", start, end } = req.query;
+  const { url, format="mp4", quality="1080", type="video", start, end, platform, noWatermark } = req.query;
   const ip = getIp(req);
-
   const safeUrl = sanitizeUrl(url || "");
   if (!safeUrl) { res.status(400).end(); return; }
   if (store.blocked.has(ip)) { res.status(403).end(); return; }
@@ -402,19 +445,34 @@ app.get("/api/download-progress", async (req, res) => {
   if (!store.settings.allowedFormats.includes(format)) { res.status(400).end(); return; }
   if (store.activeJobs >= store.settings.maxConcurrent) { res.status(503).end(); return; }
 
-  // Get country async (non-blocking)
+  const detectedPlatform = platform || detectPlatform(url) || "youtube";
   const countryPromise = getCountry(ip);
 
   sseSetup(res);
   store.activeJobs++;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kingo-"));
   const outputTemplate = path.join(tmpDir, "%(title)s.%(ext)s");
-  const args = ["--no-playlist", "--newline", "--progress", ...buildYtdlpBaseArgs(), "-o", outputTemplate];
-  if (type==="audio") { args.push("-x","--audio-format",format,"--audio-quality","0"); }
-  else { args.push("-f",`bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,"--merge-output-format",format); }
-  if (start && end) args.push("--postprocessor-args", `ffmpeg:-ss ${start} -to ${end}`);
-  args.push(safeUrl);
+  const args = ["--no-playlist", "--newline", "--progress", ...buildYtdlpBaseArgs(detectedPlatform), "-o", outputTemplate];
 
+  if (detectedPlatform === "instagram" || detectedPlatform === "tiktok") {
+    // For social platforms: best quality, handle images too
+    if (type === "audio") {
+      args.push("-x", "--audio-format", format, "--audio-quality", "0");
+    } else {
+      // TikTok watermark removal
+      if (detectedPlatform === "tiktok" && noWatermark === "true") {
+        args.push("--extractor-args", "tiktok:api_hostname=api22-normal-c-alisg.tiktok.com");
+      }
+      args.push("-f", "bestvideo+bestaudio/best", "--merge-output-format", format);
+    }
+  } else {
+    // YouTube
+    if (type === "audio") { args.push("-x","--audio-format",format,"--audio-quality","0"); }
+    else { args.push("-f",`bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,"--merge-output-format",format); }
+    if (start && end) args.push("--postprocessor-args", `ffmpeg:-ss ${start} -to ${end}`);
+  }
+
+  args.push(safeUrl);
   sseSend(res, "status", { message:"Starting download…", percent:0 });
   const startTime = Date.now();
   const ytdlp = spawn("yt-dlp", args);
@@ -569,25 +627,44 @@ app.post("/api/admin/ytdlp-update", adminAuth, (req, res) => {
   });
 });
 
-// ── Cookie validation ─────────────────────────────────────────────────────────
+// ── Cookie validation (per-platform) ─────────────────────────────────────────
 app.get("/api/admin/cookies/status", adminAuth, async (req, res) => {
-  const exists = fs.existsSync(COOKIES_PATH);
-  if (!exists) return res.json({ exists:false, valid:false, reason:"No cookies file uploaded" });
-  const stat = fs.statSync(COOKIES_PATH);
-  const result = await validateCookies();
-  res.json({ exists:true, ...result, size:stat.size, modified:stat.mtime });
+  const { platform } = req.query;
+  if (platform && PLATFORMS[platform]) {
+    const result = validateCookiesSync(platform);
+    const cp = getCookiesPath(platform);
+    const legacy = path.join(__dirname, "cookies.txt");
+    const fp = fs.existsSync(cp) ? cp : (platform==="youtube" && fs.existsSync(legacy) ? legacy : null);
+    return res.json({ exists:!!fp, ...result, platform, modified:fp?fs.statSync(fp).mtime:null });
+  }
+  // Return all platforms status
+  const statuses = {};
+  for (const [p] of Object.entries(PLATFORMS)) {
+    const result = validateCookiesSync(p);
+    const cp = getCookiesPath(p);
+    const legacy = path.join(__dirname, "cookies.txt");
+    const fp = fs.existsSync(cp) ? cp : (p==="youtube" && fs.existsSync(legacy) ? legacy : null);
+    statuses[p] = { exists:!!fp, ...result, modified:fp?fs.statSync(fp).mtime:null };
+  }
+  res.json(statuses);
 });
 
 app.post("/api/admin/cookies/upload", adminAuth, express.text({ type:"*/*", limit:"500kb" }), (req, res) => {
+  const { platform="youtube" } = req.query;
   const content = req.body;
   if (!content || typeof content !== "string") return res.status(400).json({ error:"Cookie content required" });
-  if (!content.includes("youtube.com") && !content.includes("# Netscape")) return res.status(400).json({ error:"Invalid cookies file format. Must be Netscape format from YouTube." });
-  fs.writeFileSync(COOKIES_PATH, content, "utf8");
-  res.json({ ok:true, message:"Cookies uploaded successfully" });
+  if (!content.includes("# Netscape") && content.split("\n").length < 3) return res.status(400).json({ error:"Invalid cookies file format. Must be Netscape HTTP Cookie format." });
+  const cp = getCookiesPath(platform);
+  fs.writeFileSync(cp, content, "utf8");
+  res.json({ ok:true, message:`${PLATFORMS[platform]?.label||platform} cookies uploaded successfully` });
 });
 
 app.delete("/api/admin/cookies", adminAuth, (req, res) => {
-  if (fs.existsSync(COOKIES_PATH)) fs.unlinkSync(COOKIES_PATH);
+  const { platform="youtube" } = req.query;
+  const cp = getCookiesPath(platform);
+  if (fs.existsSync(cp)) fs.unlinkSync(cp);
+  // Also remove legacy if youtube
+  if (platform==="youtube") { const legacy=path.join(__dirname,"cookies.txt"); if(fs.existsSync(legacy)) fs.unlinkSync(legacy); }
   res.json({ ok:true });
 });
 
