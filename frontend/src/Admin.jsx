@@ -361,60 +361,98 @@ function IPManager({adminKey}){
 
 // ── Cookies Manager ───────────────────────────────────────────────────────────
 function CookiesManager({adminKey}){
-  const [status,setStatus]=useState(null);const [uploading,setUploading]=useState(false);const [content,setContent]=useState("");const [msg,setMsg]=useState({type:"",text:""});const [validating,setValidating]=useState(false);
-  const loadStatus=async()=>{const res=await fetch(`${API_BASE}/api/admin/cookies/status`,{headers:{"x-admin-key":adminKey}});setStatus(await res.json());};
-  useEffect(()=>{loadStatus();},[]);
-  const upload=async()=>{if(!content.trim())return;setUploading(true);const res=await fetch(`${API_BASE}/api/admin/cookies/upload`,{method:"POST",headers:{"x-admin-key":adminKey,"Content-Type":"text/plain"},body:content});const d=await res.json();if(res.ok){setMsg({type:"success",text:"✅ Cookies uploaded successfully!"});setContent("");await loadStatus();}else{setMsg({type:"error",text:"❌ "+d.error});}setUploading(false);};
-  const remove=async()=>{if(!confirm("Delete cookies file?"))return;await fetch(`${API_BASE}/api/admin/cookies`,{method:"DELETE",headers:{"x-admin-key":adminKey}});await loadStatus();setMsg({type:"success",text:"Cookies deleted"});};
-  const validate=async()=>{setValidating(true);await loadStatus();setValidating(false);};
+  const PLATFORMS=[
+    {id:"youtube",   label:"YouTube",   icon:"▶", color:"#ff0000", domain:"youtube.com",   hint:"Log into youtube.com and export cookies"},
+    {id:"instagram", label:"Instagram", icon:"📸", color:"#e1306c", domain:"instagram.com", hint:"Log into instagram.com and export cookies. Required for Reels, photos & Stories."},
+    {id:"tiktok",    label:"TikTok",    icon:"♪", color:"#69c9d0", domain:"tiktok.com",    hint:"Optional — most public TikTok videos work without cookies."},
+  ];
+  const [activePlatform,setActivePlatform]=useState("youtube");
+  const [statuses,setStatuses]=useState({});
+  const [uploading,setUploading]=useState(false);
+  const [content,setContent]=useState("");
+  const [msg,setMsg]=useState({type:"",text:""});
+
+  const loadStatuses=async()=>{
+    const res=await fetch(`${API_BASE}/api/admin/cookies/status`,{headers:{"x-admin-key":adminKey}});
+    const d=await res.json();setStatuses(d);
+  };
+  useEffect(()=>{loadStatuses();},[]);
+
+  const upload=async()=>{
+    if(!content.trim())return;setUploading(true);
+    const res=await fetch(`${API_BASE}/api/admin/cookies/upload?platform=${activePlatform}`,{method:"POST",headers:{"x-admin-key":adminKey,"Content-Type":"text/plain"},body:content});
+    const d=await res.json();
+    if(res.ok){setMsg({type:"success",text:`✅ ${PLATFORMS.find(p=>p.id===activePlatform)?.label} cookies uploaded!`});setContent("");await loadStatuses();}
+    else{setMsg({type:"error",text:"❌ "+d.error});}
+    setUploading(false);
+  };
+
+  const remove=async(platform)=>{
+    if(!confirm(`Delete ${platform} cookies?`))return;
+    await fetch(`${API_BASE}/api/admin/cookies?platform=${platform}`,{method:"DELETE",headers:{"x-admin-key":adminKey}});
+    await loadStatuses();
+  };
+
+  const activePlatformData=PLATFORMS.find(p=>p.id===activePlatform);
+  const activeStatus=statuses[activePlatform];
+
   return (
     <div>
       <h2 style={{color:C.text,fontWeight:800,fontSize:18,marginBottom:20}}>🍪 Cookies Manager</h2>
-      <div style={{background:C.infoSoft,border:`1px solid ${C.info}44`,borderRadius:12,padding:16,marginBottom:20}}>
-        <p style={{color:C.info,fontWeight:700,fontSize:13,margin:"0 0 8px"}}>ℹ Why cookies are needed</p>
-        <p style={{color:C.textSub,fontSize:12,margin:0}}>YouTube requires authentication to access some videos and bypass bot detection. Upload your YouTube cookies to avoid "Sign in to confirm you're not a bot" errors. Cookies expire periodically and need to be refreshed.</p>
+
+      {/* Platform status overview */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
+        {PLATFORMS.map(p=>{
+          const s=statuses[p.id];
+          return(
+            <div key={p.id} onClick={()=>{setActivePlatform(p.id);setContent("");setMsg({type:"",text:""}); }}
+              style={{background:C.card,border:`2px solid ${activePlatform===p.id?p.color+"88":C.border}`,borderRadius:14,padding:14,cursor:"pointer",transition:"all 0.2s",boxShadow:activePlatform===p.id?`0 0 20px ${p.color}22`:"none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:18}}>{p.icon}</span>
+                <span style={{color:C.text,fontWeight:700,fontSize:13}}>{p.label}</span>
+              </div>
+              {s?(
+                <span style={{background:s.valid?C.successSoft:C.dangerSoft,color:s.valid?C.success:C.danger,fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:20}}>
+                  {s.valid?"✅ Valid":"❌ "+( s.reason?.slice(0,20)||"Missing")}
+                </span>
+              ):<span style={{color:C.textMuted,fontSize:11}}>Loading…</span>}
+              {s?.valid&&s.ageDays!==undefined&&<p style={{color:C.textMuted,fontSize:10,margin:"4px 0 0"}}>{s.ageDays}d old · {s.sizeKB} KB</p>}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Current Status */}
-      {status && (
-        <Card style={{marginBottom:16,border:`1px solid ${status.valid?C.success+"44":C.danger+"44"}`}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-            <div>
-              <p style={{color:C.text,fontWeight:700,fontSize:14,margin:"0 0 4px"}}>Cookie Status</p>
-              <p style={{color:status.valid?C.success:C.danger,fontSize:13,margin:0,fontWeight:600}}>
-                {status.valid?"✅ Valid & Working":"❌ "+status.reason}
-              </p>
-              {status.exists&&<p style={{color:C.textMuted,fontSize:11,margin:"4px 0 0"}}>Size: {status.size} bytes · Modified: {new Date(status.modified).toLocaleString()}</p>}
-            </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={validate} disabled={validating} style={{background:C.accentSoft,border:`1px solid ${C.accent}44`,borderRadius:8,padding:"8px 14px",color:C.accent,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6}}>
-                {validating?<Spinner color={C.accent} size={12}/>:"🔍"} Validate
-              </button>
-              {status.exists&&<button onClick={remove} style={{background:C.dangerSoft,border:`1px solid ${C.danger}44`,borderRadius:8,padding:"8px 14px",color:C.danger,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑 Delete</button>}
-            </div>
+      {/* Active platform uploader */}
+      <Card style={{border:`1px solid ${activePlatformData?.color+"44"}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <span style={{fontSize:22}}>{activePlatformData?.icon}</span>
+          <div>
+            <h3 style={{color:C.text,fontWeight:700,fontSize:15,margin:0}}>{activePlatformData?.label} Cookies</h3>
+            <p style={{color:C.textMuted,fontSize:12,margin:0}}>{activePlatformData?.hint}</p>
           </div>
-        </Card>
-      )}
+          {activeStatus?.valid&&(
+            <button onClick={()=>remove(activePlatform)} style={{marginLeft:"auto",background:C.dangerSoft,border:`1px solid ${C.danger}44`,borderRadius:8,padding:"6px 12px",color:C.danger,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑 Delete</button>
+          )}
+        </div>
 
-      {/* Upload new cookies */}
-      <Card>
-        <h3 style={{color:C.textSub,fontSize:13,fontWeight:700,marginBottom:16}}>Upload New Cookies</h3>
-        <div style={{background:C.surface,borderRadius:10,padding:14,marginBottom:16,border:`1px solid ${C.border}`}}>
-          <p style={{color:C.text,fontWeight:600,fontSize:13,margin:"0 0 8px"}}>How to get your YouTube cookies:</p>
+        {/* How to guide */}
+        <div style={{background:C.surface,borderRadius:10,padding:14,marginBottom:14,border:`1px solid ${C.border}`}}>
+          <p style={{color:C.text,fontWeight:600,fontSize:12,margin:"0 0 8px"}}>How to export {activePlatformData?.label} cookies:</p>
           <ol style={{color:C.textSub,fontSize:12,paddingLeft:20,lineHeight:1.8,margin:0}}>
-            <li>Install <strong style={{color:C.accent}}>"Get cookies.txt LOCALLY"</strong> extension in Chrome/Firefox</li>
-            <li>Go to <strong>youtube.com</strong> and make sure you're logged in</li>
-            <li>Click the extension icon → click <strong>"Export"</strong></li>
-            <li>Copy the entire contents of the downloaded file</li>
-            <li>Paste it in the box below and click Upload</li>
+            <li>Install <strong style={{color:C.accent}}>"Get cookies.txt LOCALLY"</strong> in Chrome/Firefox</li>
+            <li>Go to <strong style={{color:activePlatformData?.color}}>{activePlatformData?.domain}</strong> and log in</li>
+            <li>Click the extension → <strong>Export</strong></li>
+            <li>Paste the file contents below and click Upload</li>
           </ol>
         </div>
-        <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="# Netscape HTTP Cookie File&#10;# Paste your cookies.txt content here..." rows={8}
+
+        <textarea value={content} onChange={e=>setContent(e.target.value)}
+          placeholder={`# Netscape HTTP Cookie File\n# Paste your ${activePlatformData?.label} cookies here...`} rows={7}
           style={{width:"100%",background:C.surface,border:`1.5px solid ${C.border}`,borderRadius:10,padding:"12px 16px",color:C.text,fontSize:12,fontFamily:"monospace",outline:"none",resize:"vertical",lineHeight:1.5}} />
         {msg.text&&<p style={{color:msg.type==="success"?C.success:C.danger,fontSize:13,marginTop:10,fontWeight:600}}>{msg.text}</p>}
         <button onClick={upload} disabled={uploading||!content.trim()}
-          style={{marginTop:12,width:"100%",background:content.trim()?C.accent:C.border,border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:700,fontSize:14,cursor:content.trim()?"pointer":"default",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          {uploading?<><Spinner color="#fff"/> Uploading…</>:"🍪 Upload Cookies"}
+          style={{marginTop:12,width:"100%",background:content.trim()?activePlatformData?.color||C.accent:C.border,border:"none",borderRadius:10,padding:13,color:"#fff",fontWeight:700,fontSize:14,cursor:content.trim()?"pointer":"default",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:content.trim()?1:0.5}}>
+          {uploading?<><Spinner color="#fff"/> Uploading…</>:`🍪 Upload ${activePlatformData?.label} Cookies`}
         </button>
       </Card>
     </div>

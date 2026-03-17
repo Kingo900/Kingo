@@ -272,10 +272,12 @@ export default function App(){
 
   // Download state
   const[url,setUrl]=useState("");const[dragging,setDragging]=useState(false);
+  const[platform,setPlatform]=useState("youtube");
   const[videoInfo,setVideoInfo]=useState(null);const[loadingInfo,setLoadingInfo]=useState(false);const[infoError,setInfoError]=useState("");
   const[format,setFormat]=useState("mp4");const[quality,setQuality]=useState("1080");const[dlType,setDlType]=useState("video");
   const[trimEnabled,setTrimEnabled]=useState(false);const[trimStart,setTrimStart]=useState(0);const[trimEnd,setTrimEnd]=useState(0);
   const[subtitleEnabled,setSubtitleEnabled]=useState(false);const[subLang,setSubLang]=useState("en");
+  const[noWatermark,setNoWatermark]=useState(true);
 
   // Queue
   const[queue,setQueue]=useState([]);
@@ -297,11 +299,12 @@ export default function App(){
 
   const celebrate=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),3500);};
 
-  const fetchInfo=async(inputUrl)=>{
+  const fetchInfo=async(inputUrl, inputPlatform)=>{
     const u=(inputUrl||url).trim();if(!u)return;
+    const p=inputPlatform||platform;
     setLoadingInfo(true);setInfoError("");setVideoInfo(null);setTrimEnabled(false);
     try{
-      const res=await fetch(`${API_BASE}/api/info?url=${encodeURIComponent(u)}`);
+      const res=await fetch(`${API_BASE}/api/info?url=${encodeURIComponent(u)}&platform=${p}`);
       const data=await res.json();if(!res.ok)throw new Error(data.error||"Failed");
       setVideoInfo(data);setTrimStart(0);setTrimEnd(data.duration||0);saveRecentURL(u,data.title,data.thumbnail);
     }catch(e){setInfoError(e.message);}
@@ -311,10 +314,11 @@ export default function App(){
   const startDownload=useCallback((opts={})=>{
     const dlUrl=opts.url||url;if(!dlUrl)return;
     const dlFormat=opts.format||format;const dlQuality=opts.quality||quality;const dlDlType=opts.type||dlType;
+    const dlPlatform=opts.platform||platform;
     const id=Math.random().toString(36).slice(2);
-    const item={id,url:dlUrl,format:dlFormat,quality:dlQuality,type:dlDlType,status:"downloading",percent:0,speed:"",eta:"",title:videoInfo?.title||dlUrl,token:null,fileName:null,sizeMB:null,error:null};
+    const item={id,url:dlUrl,format:dlFormat,quality:dlQuality,type:dlDlType,platform:dlPlatform,status:"downloading",percent:0,speed:"",eta:"",title:videoInfo?.title||dlUrl,token:null,fileName:null,sizeMB:null,error:null};
     queueRef.current=[item,...queueRef.current];setQueue([...queueRef.current]);setTab("queue");
-    const params=new URLSearchParams({url:dlUrl,format:dlFormat,quality:dlQuality,type:dlDlType,...(trimEnabled&&!opts.url?{start:fmt(trimStart),end:fmt(trimEnd)}:{})});
+    const params=new URLSearchParams({url:dlUrl,format:dlFormat,quality:dlQuality,type:dlDlType,platform:dlPlatform,...(trimEnabled&&!opts.url?{start:fmt(trimStart),end:fmt(trimEnd)}:{}),...(dlPlatform==="tiktok"&&noWatermark?{noWatermark:"true"}:{})});
     const es=new EventSource(`${API_BASE}/api/download-progress?${params}`);
     es.addEventListener("progress",e=>{const d=JSON.parse(e.data);updateQ(id,{percent:d.percent,speed:d.speed,eta:d.eta});});
     es.addEventListener("status",e=>{const d=JSON.parse(e.data);updateQ(id,{percent:d.percent||queueRef.current.find(i=>i.id===id)?.percent||0});});
@@ -424,19 +428,49 @@ export default function App(){
         {/* ── DOWNLOAD ── */}
         {tab==="download"&&(
           <div className="fade-up">
-            <div style={{textAlign:"center",marginBottom:36}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:14}}>
+            <div style={{textAlign:"center",marginBottom:28}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:12}}>
                 <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,color:"#fff",fontFamily:"var(--display)",fontWeight:800,boxShadow:`0 0 30px ${t.accentGlow}`}}>K</div>
                 <div style={{textAlign:"left"}}>
                   <h1 style={{fontFamily:"var(--display)",fontSize:clamp(24,4,34),fontWeight:900,color:t.text,letterSpacing:-0.5,lineHeight:1,margin:0}}>Kingo</h1>
-                  <p style={{color:t.accentText,fontWeight:700,fontSize:13,letterSpacing:1,textTransform:"uppercase",margin:0}}>YTDownloader</p>
+                  <p style={{color:t.accentText,fontWeight:700,fontSize:13,letterSpacing:1,textTransform:"uppercase",margin:0}}>Downloader</p>
                 </div>
               </div>
-              <h2 style={{fontFamily:"var(--display)",fontSize:clamp(20,3,28),fontWeight:700,color:t.text,letterSpacing:-0.5,lineHeight:1.3,marginBottom:8}}>
-                Download <span style={{background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>YouTube</span> videos instantly
-              </h2>
-              <p style={{color:t.textMuted,fontSize:14}}>Video · Audio · Playlists · Subtitles · Fast &amp; Free</p>
+              <p style={{color:t.textMuted,fontSize:14}}>Video · Audio · Photos · Fast &amp; Free</p>
             </div>
+
+            {/* ── Platform Pill Selector ── */}
+            <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:20,flexWrap:"wrap"}}>
+              {[
+                {id:"youtube",   icon:"▶", label:"YouTube",   color:"#ff0000", bg:"#ff000018"},
+                {id:"instagram", icon:"📸", label:"Instagram", color:"#e1306c", bg:"#e1306c18"},
+                {id:"tiktok",    icon:"♪", label:"TikTok",    color:"#010101", bg:t.surface, darkColor:"#69c9d0"},
+              ].map(p=>{
+                const isActive=platform===p.id;
+                const col=p.id==="tiktok"?(themeMode==="dark"?p.darkColor:p.color):p.color;
+                return(
+                  <button key={p.id} onClick={()=>{setPlatform(p.id);setVideoInfo(null);setUrl("");setInfoError("");}}
+                    style={{display:"flex",alignItems:"center",gap:8,padding:"10px 22px",borderRadius:100,border:`2px solid ${isActive?col:t.border}`,background:isActive?col+"22":t.surface,color:isActive?col:t.textSub,fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s",boxShadow:isActive?`0 0 20px ${col}44`:"none"}}>
+                    <span style={{fontSize:16}}>{p.icon}</span>
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Platform info hint */}
+            {platform==="instagram"&&(
+              <div style={{background:"#e1306c12",border:"1px solid #e1306c33",borderRadius:12,padding:"10px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:18}}>📸</span>
+                <p style={{color:"#e1306c",fontSize:12,fontWeight:600,margin:0}}>Supports Reels, Videos, Photos & Carousels. Instagram login required — upload cookies in Admin.</p>
+              </div>
+            )}
+            {platform==="tiktok"&&(
+              <div style={{background:"#69c9d012",border:"1px solid #69c9d033",borderRadius:12,padding:"10px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:18}}>♪</span>
+                <p style={{color:themeMode==="dark"?"#69c9d0":"#010101",fontSize:12,fontWeight:600,margin:0}}>Supports videos & slideshows. Most public videos work without login.</p>
+              </div>
+            )}
 
             {/* URL input */}
             <div style={{background:t.card,border:`1px solid ${dragging?t.accentBright:t.border}`,borderRadius:20,padding:22,marginBottom:16,transition:"all 0.2s",boxShadow:dragging?`0 0 40px ${t.accentGlow}`:"none"}}
@@ -444,7 +478,9 @@ export default function App(){
               onDrop={e=>{e.preventDefault();setDragging(false);const tx=e.dataTransfer.getData("text");if(tx){setUrl(tx);fetchInfo(tx);}}}>
               <RecentURLs t={t} onSelect={u=>{setUrl(u);fetchInfo(u);}}/>
               <div style={{display:"flex",gap:10}}>
-                <input value={url} onChange={e=>setUrl(e.target.value)} placeholder="Paste YouTube URL here…" onKeyDown={e=>e.key==="Enter"&&fetchInfo()}
+                <input value={url} onChange={e=>setUrl(e.target.value)}
+                  placeholder={platform==="youtube"?"Paste YouTube URL…":platform==="instagram"?"Paste Instagram URL…":"Paste TikTok URL…"}
+                  onKeyDown={e=>e.key==="Enter"&&fetchInfo()}
                   style={inputStyle({flex:1})}
                   onFocus={e=>e.target.style.borderColor=t.accentBright} onBlur={e=>e.target.style.borderColor=t.border}/>
                 <button onClick={()=>fetchInfo()} disabled={!url||loadingInfo} style={btnPrimary({flexShrink:0,display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap",opacity:url&&!loadingInfo?1:0.55})}>
@@ -463,14 +499,16 @@ export default function App(){
             {videoInfo&&(
               <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:20,overflow:"hidden",animation:"fadeUp 0.3s ease"}}>
                 <div style={{display:"flex"}}>
-                  {videoInfo.thumbnail&&<img src={videoInfo.thumbnail} alt={videoInfo.title} style={{width:200,objectFit:"cover",flexShrink:0}}/>}
+                  {videoInfo.thumbnail&&<img src={videoInfo.thumbnail} alt={videoInfo.title} style={{width:videoInfo.mediaType==="image"?160:200,objectFit:"cover",flexShrink:0}}/>}
                   <div style={{padding:20,flex:1,minWidth:0}}>
                     <h3 style={{color:t.text,fontWeight:700,fontSize:16,lineHeight:1.4,marginBottom:10,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{videoInfo.title}</h3>
                     <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
-                      {videoInfo.channel&&<span style={{color:t.textMuted,fontSize:12}}>📺 {videoInfo.channel}</span>}
-                      {videoInfo.duration&&<span style={{color:t.textMuted,fontSize:12,fontFamily:"var(--mono)"}}>⏱ {fmt(videoInfo.duration)}</span>}
+                      {videoInfo.channel&&<span style={{color:t.textMuted,fontSize:12}}>👤 {videoInfo.channel}</span>}
+                      {videoInfo.duration>0&&<span style={{color:t.textMuted,fontSize:12,fontFamily:"var(--mono)"}}>⏱ {fmt(videoInfo.duration)}</span>}
                       {videoInfo.view_count&&<span style={{color:t.textMuted,fontSize:12}}>👁 {videoInfo.view_count.toLocaleString()}</span>}
-                      {estimateSize(videoInfo,dlType,quality)&&<span style={{color:t.accentText,fontSize:12,fontWeight:700,fontFamily:"var(--mono)"}}>💾 {estimateSize(videoInfo,dlType,quality)}</span>}
+                      {videoInfo.isCarousel&&<span style={{background:"#e1306c18",color:"#e1306c",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>📸 {videoInfo.imageCount} photos</span>}
+                      {videoInfo.mediaType==="image"&&!videoInfo.isCarousel&&<span style={{background:"#e1306c18",color:"#e1306c",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>📸 Photo</span>}
+                      {estimateSize(videoInfo,dlType,quality)&&videoInfo.mediaType!=="image"&&<span style={{color:t.accentText,fontSize:12,fontWeight:700,fontFamily:"var(--mono)"}}>💾 {estimateSize(videoInfo,dlType,quality)}</span>}
                     </div>
                     <a href={videoInfo.thumbnail} download target="_blank" rel="noreferrer"
                       style={{display:"inline-flex",alignItems:"center",gap:6,background:t.accentSoft,border:`1px solid ${t.accentBright}30`,borderRadius:9,padding:"6px 14px",color:t.accentText,fontSize:12,fontWeight:600,textDecoration:"none"}}>
@@ -480,39 +518,77 @@ export default function App(){
                 </div>
 
                 <div style={{padding:"0 20px 22px",display:"flex",flexDirection:"column",gap:14}}>
-                  {/* Type toggle */}
-                  <div style={{display:"flex",background:t.surface,borderRadius:12,padding:4,gap:3}}>
-                    {[["video","🎬 Video"],["audio","🎵 Audio"]].map(([type,label])=>(
-                      <button key={type} onClick={()=>{setDlType(type);setFormat(type==="video"?"mp4":"mp3");}}
-                        style={{flex:1,padding:"9px",borderRadius:9,border:"none",background:dlType===type?`linear-gradient(135deg,${t.accentBright},#a855f7)`:"transparent",color:dlType===type?"#fff":t.textMuted,fontWeight:dlType===type?700:500,fontSize:13,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                    <div>
-                      <div style={{color:t.textMuted,fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>Format</div>
-                      <select value={format} onChange={e=>setFormat(e.target.value)} style={selectStyle()}>{(dlType==="video"?VIDEO_FORMATS:AUDIO_FORMATS).map(f=><option key={f} value={f}>.{f.toUpperCase()}</option>)}</select>
+
+                  {/* YouTube-specific options */}
+                  {platform==="youtube"&&videoInfo.mediaType!=="image"&&(<>
+                    <div style={{display:"flex",background:t.surface,borderRadius:12,padding:4,gap:3}}>
+                      {[["video","🎬 Video"],["audio","🎵 Audio"]].map(([type,label])=>(
+                        <button key={type} onClick={()=>{setDlType(type);setFormat(type==="video"?"mp4":"mp3");}}
+                          style={{flex:1,padding:"9px",borderRadius:9,border:"none",background:dlType===type?`linear-gradient(135deg,${t.accentBright},#a855f7)`:"transparent",color:dlType===type?"#fff":t.textMuted,fontWeight:dlType===type?700:500,fontSize:13,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
-                    <div>
-                      <div style={{color:t.textMuted,fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>Quality</div>
-                      <select value={quality} onChange={e=>setQuality(e.target.value)} style={selectStyle()}>{QUALITY_OPTIONS[dlType].map(o=><option key={o.value} value={o.value}>{o.label}{estimateSize(videoInfo,dlType,o.value)?" · "+estimateSize(videoInfo,dlType,o.value):""}</option>)}</select>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                      <div>
+                        <div style={{color:t.textMuted,fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>Format</div>
+                        <select value={format} onChange={e=>setFormat(e.target.value)} style={selectStyle()}>{(dlType==="video"?VIDEO_FORMATS:AUDIO_FORMATS).map(f=><option key={f} value={f}>.{f.toUpperCase()}</option>)}</select>
+                      </div>
+                      <div>
+                        <div style={{color:t.textMuted,fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",marginBottom:6}}>Quality</div>
+                        <select value={quality} onChange={e=>setQuality(e.target.value)} style={selectStyle()}>{QUALITY_OPTIONS[dlType].map(o=><option key={o.value} value={o.value}>{o.label}{estimateSize(videoInfo,dlType,o.value)?" · "+estimateSize(videoInfo,dlType,o.value):""}</option>)}</select>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                    {videoInfo.duration>0&&<button onClick={()=>setTrimEnabled(v=>!v)} style={{background:trimEnabled?t.warningSoft:"transparent",border:`1px solid ${trimEnabled?t.warning:t.border}`,borderRadius:10,padding:"8px 16px",color:trimEnabled?t.warning:t.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>✂ Trim {trimEnabled?"On":""}</button>}
-                    <button onClick={()=>setSubtitleEnabled(v=>!v)} style={{background:subtitleEnabled?t.infoSoft:"transparent",border:`1px solid ${subtitleEnabled?t.info:t.border}`,borderRadius:10,padding:"8px 16px",color:subtitleEnabled?t.info:t.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>💬 Subtitles {subtitleEnabled?"On":""}</button>
-                  </div>
-                  {trimEnabled&&videoInfo.duration>0&&<div style={{animation:"fadeUp 0.3s ease"}}><TrimControl duration={videoInfo.duration} trimStart={trimStart} trimEnd={trimEnd} setTrimStart={setTrimStart} setTrimEnd={setTrimEnd} t={t}/></div>}
-                  {subtitleEnabled&&(
-                    <div style={{display:"flex",gap:10,animation:"fadeUp 0.2s ease"}}>
-                      <select value={subLang} onChange={e=>setSubLang(e.target.value)} style={selectStyle({flex:1})}>{POPULAR_LANGS.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}</select>
-                      <button onClick={downloadSubtitle} style={{background:t.infoSoft,border:`1px solid ${t.info}44`,borderRadius:10,padding:"10px 18px",color:t.info,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"var(--font)",whiteSpace:"nowrap"}}>↓ .srt</button>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      {videoInfo.duration>0&&<button onClick={()=>setTrimEnabled(v=>!v)} style={{background:trimEnabled?t.warningSoft:"transparent",border:`1px solid ${trimEnabled?t.warning:t.border}`,borderRadius:10,padding:"8px 16px",color:trimEnabled?t.warning:t.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>✂ Trim {trimEnabled?"On":""}</button>}
+                      <button onClick={()=>setSubtitleEnabled(v=>!v)} style={{background:subtitleEnabled?t.infoSoft:"transparent",border:`1px solid ${subtitleEnabled?t.info:t.border}`,borderRadius:10,padding:"8px 16px",color:subtitleEnabled?t.info:t.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)",transition:"all 0.2s"}}>💬 Subtitles {subtitleEnabled?"On":""}</button>
+                    </div>
+                    {trimEnabled&&videoInfo.duration>0&&<div style={{animation:"fadeUp 0.3s ease"}}><TrimControl duration={videoInfo.duration} trimStart={trimStart} trimEnd={trimEnd} setTrimStart={setTrimStart} setTrimEnd={setTrimEnd} t={t}/></div>}
+                    {subtitleEnabled&&(
+                      <div style={{display:"flex",gap:10,animation:"fadeUp 0.2s ease"}}>
+                        <select value={subLang} onChange={e=>setSubLang(e.target.value)} style={selectStyle({flex:1})}>{POPULAR_LANGS.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}</select>
+                        <button onClick={downloadSubtitle} style={{background:t.infoSoft,border:`1px solid ${t.info}44`,borderRadius:10,padding:"10px 18px",color:t.info,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"var(--font)",whiteSpace:"nowrap"}}>↓ .srt</button>
+                      </div>
+                    )}
+                  </>)}
+
+                  {/* Instagram-specific options */}
+                  {platform==="instagram"&&(
+                    <div style={{background:t.surface,borderRadius:12,padding:14}}>
+                      <p style={{color:t.textMuted,fontSize:12,margin:"0 0 10px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>Download options</p>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {videoInfo.isCarousel&&<span style={{background:"#e1306c18",color:"#e1306c",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>📸 All {videoInfo.imageCount} photos will be downloaded</span>}
+                        {!videoInfo.isCarousel&&videoInfo.mediaType==="image"&&<span style={{background:"#e1306c18",color:"#e1306c",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>📸 Single photo</span>}
+                        {videoInfo.mediaType==="video"&&<span style={{background:"#e1306c18",color:"#e1306c",fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:20}}>🎬 Best quality video</span>}
+                      </div>
                     </div>
                   )}
+
+                  {/* TikTok-specific options */}
+                  {platform==="tiktok"&&(
+                    <div style={{background:t.surface,borderRadius:12,padding:14}}>
+                      <p style={{color:t.textMuted,fontSize:12,margin:"0 0 12px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>TikTok options</p>
+                      <button onClick={()=>setNoWatermark(v=>!v)}
+                        style={{display:"flex",alignItems:"center",gap:12,background:"transparent",border:`1.5px solid ${noWatermark?"#69c9d0":t.border}`,borderRadius:12,padding:"10px 16px",cursor:"pointer",fontFamily:"var(--font)",width:"100%",transition:"all 0.2s"}}>
+                        <div style={{width:40,height:22,borderRadius:100,background:noWatermark?"#69c9d0":t.border,position:"relative",transition:"background 0.2s",flexShrink:0}}>
+                          <div style={{position:"absolute",top:3,left:noWatermark?21:3,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}/>
+                        </div>
+                        <div style={{textAlign:"left"}}>
+                          <p style={{color:noWatermark?"#69c9d0":t.textSub,fontWeight:700,fontSize:13,margin:0}}>Remove Watermark</p>
+                          <p style={{color:t.textMuted,fontSize:11,margin:0}}>{noWatermark?"Watermark will be removed":"Download with TikTok watermark"}</p>
+                        </div>
+                      </button>
+                    </div>
+                  )}
+
                   <button onClick={()=>startDownload()} style={btnPrimary({width:"100%",padding:15,fontSize:15,fontFamily:"var(--display)",letterSpacing:0.3,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4})}>
-                    <span>⬇ Download Now</span>
-                    {estimateSize(videoInfo,dlType,quality)&&<span style={{fontSize:11,fontWeight:500,opacity:0.8}}>💾 Est. {estimateSize(videoInfo,dlType,quality)}</span>}
+                    <span>
+                      {platform==="instagram"&&videoInfo.isCarousel?"📸 Download All Photos":
+                       platform==="instagram"&&videoInfo.mediaType==="image"?"📸 Download Photo":
+                       platform==="tiktok"?"♪ Download TikTok":
+                       "⬇ Download Now"}
+                    </span>
+                    {estimateSize(videoInfo,dlType,quality)&&videoInfo.mediaType!=="image"&&<span style={{fontSize:11,fontWeight:500,opacity:0.8}}>💾 Est. {estimateSize(videoInfo,dlType,quality)}</span>}
                   </button>
                 </div>
               </div>
