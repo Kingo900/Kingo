@@ -278,6 +278,7 @@ export default function App(){
   const[trimEnabled,setTrimEnabled]=useState(false);const[trimStart,setTrimStart]=useState(0);const[trimEnd,setTrimEnd]=useState(0);
   const[subtitleEnabled,setSubtitleEnabled]=useState(false);const[subLang,setSubLang]=useState("en");
   const[noWatermark,setNoWatermark]=useState(true);
+  const[cookieStatus,setCookieStatus]=useState({});
 
   // Queue
   const[queue,setQueue]=useState([]);
@@ -293,7 +294,10 @@ export default function App(){
   const[batchUrls,setBatchUrls]=useState("");const[batchFormat,setBatchFormat]=useState("mp4");const[batchQuality,setBatchQuality]=useState("720");
   const[batchRunning,setBatchRunning]=useState(false);
 
-  useEffect(()=>{fetch(`${API_BASE}/api/banner`).then(r=>r.json()).then(d=>{if(d.message||d.maintenance)setBanner(d);}).catch(()=>{});const h=e=>{e.preventDefault();setPwaPrompt(e);};window.addEventListener("beforeinstallprompt",h);if(window.__pwaPrompt)setPwaPrompt(window.__pwaPrompt);return()=>window.removeEventListener("beforeinstallprompt",h);},[]);
+  useEffect(()=>{fetch(`${API_BASE}/api/banner`).then(r=>r.json()).then(d=>{if(d.message||d.maintenance)setBanner(d);}).catch(()=>{});const h=e=>{e.preventDefault();setPwaPrompt(e);};window.addEventListener("beforeinstallprompt",h);if(window.__pwaPrompt)setPwaPrompt(window.__pwaPrompt);
+    // Fetch public cookie status
+    fetch(`${API_BASE}/api/cookie-status`).then(r=>r.json()).then(d=>setCookieStatus(d)).catch(()=>{});
+    return()=>window.removeEventListener("beforeinstallprompt",h);},[]);
 
   if(!authed)return<><style>{CSS}</style><PasswordGate onAuth={()=>setAuthed(true)} t={t}/></>;
 
@@ -436,7 +440,9 @@ export default function App(){
                   <p style={{color:t.accentText,fontWeight:700,fontSize:13,letterSpacing:1,textTransform:"uppercase",margin:0}}>Downloader</p>
                 </div>
               </div>
-              <p style={{color:t.textMuted,fontSize:14}}>Video · Audio · Photos · Fast &amp; Free</p>
+              <p style={{color:t.textMuted,fontSize:14}}>
+                {platform==="youtube"?"Video · Audio · Playlists · Subtitles":platform==="instagram"?"Reels · Videos · Photos · Carousels":"Videos · Slideshows · No Watermark"}
+              </p>
             </div>
 
             {/* ── Platform Pill Selector ── */}
@@ -457,20 +463,6 @@ export default function App(){
                 );
               })}
             </div>
-
-            {/* Platform info hint */}
-            {platform==="instagram"&&(
-              <div style={{background:"#e1306c12",border:"1px solid #e1306c33",borderRadius:12,padding:"10px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontSize:18}}>📸</span>
-                <p style={{color:"#e1306c",fontSize:12,fontWeight:600,margin:0}}>Supports Reels, Videos, Photos & Carousels. Instagram login required — upload cookies in Admin.</p>
-              </div>
-            )}
-            {platform==="tiktok"&&(
-              <div style={{background:"#69c9d012",border:"1px solid #69c9d033",borderRadius:12,padding:"10px 16px",marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontSize:18}}>♪</span>
-                <p style={{color:themeMode==="dark"?"#69c9d0":"#010101",fontSize:12,fontWeight:600,margin:0}}>Supports videos & slideshows. Most public videos work without login.</p>
-              </div>
-            )}
 
             {/* URL input */}
             <div style={{background:t.card,border:`1px solid ${dragging?t.accentBright:t.border}`,borderRadius:20,padding:22,marginBottom:16,transition:"all 0.2s",boxShadow:dragging?`0 0 40px ${t.accentGlow}`:"none"}}
