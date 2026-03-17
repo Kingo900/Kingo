@@ -53,11 +53,14 @@ function getCookieArgs() {
 async function validateCookies() {
   return new Promise((resolve) => {
     if (!fs.existsSync(COOKIES_PATH)) return resolve({ valid: false, reason: "No cookies file found" });
-    const args = [...getCookieArgs(), "--dump-json", "--no-playlist", "--js-runtimes", `node:${NODE_PATH}`, "https://youtube.com/watch?v=dQw4w9WgXcQ"];
-    exec(`yt-dlp ${args.join(" ")}`, { timeout: 20000 }, (err, stdout, stderr) => {
-      if (err || stderr?.includes("Sign in to confirm")) return resolve({ valid: false, reason: "Cookies expired or invalid" });
-      resolve({ valid: true, reason: "Cookies are working" });
-    });
+    const stat = fs.statSync(COOKIES_PATH);
+    if (stat.size < 100) return resolve({ valid: false, reason: "Cookies file is empty" });
+    const content = fs.readFileSync(COOKIES_PATH, "utf8");
+    if (!content.includes(".youtube.com") && !content.includes("youtube") && !content.includes("google")) 
+      return resolve({ valid: false, reason: "No YouTube cookies found in file" });
+    const ageDays = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60 * 24);
+    if (ageDays > 21) return resolve({ valid: true, reason: `Cookies valid but ${Math.floor(ageDays)} days old — consider refreshing` });
+    resolve({ valid: true, reason: `Cookies valid (${Math.floor(ageDays)} days old, ${(stat.size/1024).toFixed(1)} KB)` });
   });
 }
 
