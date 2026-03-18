@@ -70,8 +70,9 @@ function validateCookiesSync(platform="youtube") {
   const found = (PLATFORMS[platform]?.domains||[]).some(d => content.includes(d));
   if (!found) return { valid:false, reason:`No ${PLATFORMS[platform]?.label} cookies found` };
   const ageDays = (Date.now()-stat.mtimeMs)/(1000*60*60*24);
-  if (ageDays>21) return { valid:true, reason:`Valid but ${Math.floor(ageDays)} days old — refresh soon`, ageDays:Math.floor(ageDays), sizeKB:(stat.size/1024).toFixed(1) };
-  return { valid:true, reason:`Valid (${Math.floor(ageDays)} days old, ${(stat.size/1024).toFixed(1)} KB)`, ageDays:Math.floor(ageDays), sizeKB:(stat.size/1024).toFixed(1) };
+  const base = { valid:true, ageDays:Math.floor(ageDays), sizeKB:(stat.size/1024).toFixed(1), modified:stat.mtime };
+  if (ageDays>21) return { ...base, reason:`Valid but ${Math.floor(ageDays)} days old — refresh soon` };
+  return { ...base, reason:`Valid (${(stat.size/1024).toFixed(1)} KB)` };
 }
 
 async function validateCookies(platform="youtube") { return Promise.resolve(validateCookiesSync(platform)); }
@@ -484,16 +485,14 @@ app.get("/api/download-progress", async (req, res) => {
       if (noWatermark === "true") {
         args.push("--extractor-args", "tiktok:api_hostname=api22-normal-c-alisg.tiktok.com");
       }
-      // Best video + best audio, fallback to best single format
-      args.push("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best", "--merge-output-format", "mp4");
+      args.push("-f", "best", "--merge-output-format", "mp4");
     }
   } else if (detectedPlatform === "instagram") {
     args.push("--impersonate", "chrome");
     if (type === "audio") {
       args.push("-x", "--audio-format", format, "--audio-quality", "0");
     } else {
-      // Instagram: force best quality, no format restrictions
-      args.push("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best", "--merge-output-format", "mp4");
+      args.push("-f", "best", "--merge-output-format", "mp4");
     }
   } else {
     // YouTube
@@ -503,6 +502,8 @@ app.get("/api/download-progress", async (req, res) => {
   }
 
   args.push(safeUrl);
+  // For social platforms add verbose to log format selection
+  if (detectedPlatform !== "youtube") args.push("--verbose");
   sseSend(res, "status", { message:"Starting download…", percent:0 });
   const startTime = Date.now();
   const ytdlp = spawn("yt-dlp", args);
