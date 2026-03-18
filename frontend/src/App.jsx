@@ -85,6 +85,16 @@ input:focus,textarea:focus,select:focus{outline:none;}
 ::-webkit-scrollbar-thumb{background:#7c3aed44;border-radius:100px;}
 ::-webkit-scrollbar-thumb:hover{background:#7c3aed80;}
 ::selection{background:#7c3aed44;color:#fff;}
+/* Desktop: show top nav, hide bottom nav */
+.mobile-nav{display:none !important;}
+.desktop-nav{display:flex !important;}
+.main-content{padding-bottom:60px;}
+/* Mobile: hide top nav, show bottom nav */
+@media(max-width:640px){
+  .mobile-nav{display:flex !important;}
+  .desktop-nav{display:none !important;}
+  .main-content{padding-bottom:80px;}
+}
 `;
 
 // ── Micro components ──────────────────────────────────────────────────────────
@@ -399,35 +409,59 @@ export default function App(){
 
       {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",background:t.glass,borderBottom:`1px solid ${t.border}`}}>
-        <div style={{maxWidth:920,margin:"0 auto",padding:"0 20px",display:"flex",alignItems:"center",justifyContent:"space-between",height:58,gap:12}}>
+        <div style={{maxWidth:920,margin:"0 auto",padding:"0 16px",display:"flex",alignItems:"center",justifyContent:"space-between",height:56,gap:8}}>
           {/* Logo */}
-          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
-            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"var(--display)",fontWeight:800,fontSize:17,boxShadow:`0 0 20px ${t.accentGlow}`}}>K</div>
+          <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
+            <div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${t.accentBright},#a855f7)`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontFamily:"var(--display)",fontWeight:800,fontSize:16,boxShadow:`0 0 16px ${t.accentGlow}`,flexShrink:0}}>K</div>
             <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
-              <span style={{fontFamily:"var(--display)",fontSize:15,fontWeight:800,color:t.text,letterSpacing:-0.3}}>Kingo</span>
-              <span style={{fontFamily:"var(--display)",fontSize:10,fontWeight:600,color:t.accentText,letterSpacing:0.5,textTransform:"uppercase"}}>YTDownloader</span>
+              <span style={{fontFamily:"var(--display)",fontSize:14,fontWeight:800,color:t.text,letterSpacing:-0.3}}>Kingo</span>
+              <span style={{fontFamily:"var(--display)",fontSize:9,fontWeight:600,color:t.accentText,letterSpacing:0.5,textTransform:"uppercase"}}>Downloader</span>
             </div>
           </div>
-          {/* Nav */}
-          <nav style={{display:"flex",gap:2,overflowX:"auto"}}>
+
+          {/* Desktop Nav — hidden on mobile */}
+          <nav className="desktop-nav" style={{display:"flex",gap:2,flex:1,justifyContent:"center"}}>
             <NavBtn id="download" icon="⬇" label="Download"/>
             <NavBtn id="playlist" icon="📋" label="Playlist"/>
             <NavBtn id="batch" icon="📦" label="Batch"/>
             <NavBtn id="queue" icon="⚡" label="Queue" badge={activeDownloads||doneDownloads}/>
             <NavBtn id="donate" icon="💜" label="Donate"/>
           </nav>
+
           {/* Actions */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            {pwaPrompt&&<button onClick={()=>pwaPrompt.prompt()} style={{background:t.accentSoft,border:`1px solid ${t.accentBright}44`,borderRadius:9,padding:"6px 12px",color:t.accentText,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)"}}>+ App</button>}
-            <button onClick={()=>setThemeMode(m=>m==="dark"?"light":"dark")} style={{width:36,height:36,borderRadius:9,background:t.surface,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s"}} title="Toggle theme">
+            {pwaPrompt&&<button onClick={()=>pwaPrompt.prompt()} style={{background:t.accentSoft,border:`1px solid ${t.accentBright}44`,borderRadius:9,padding:"6px 10px",color:t.accentText,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"var(--font)"}}>+ App</button>}
+            <button onClick={()=>setThemeMode(m=>m==="dark"?"light":"dark")} style={{width:34,height:34,borderRadius:9,background:t.surface,border:`1px solid ${t.border}`,cursor:"pointer",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",flexShrink:0}} title="Toggle theme">
               {themeMode==="dark"?"☀️":"🌙"}
             </button>
           </div>
         </div>
       </header>
 
+      {/* Mobile Bottom Tab Bar — visible only on mobile */}
+      <nav className="mobile-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",background:t.glass,borderTop:`1px solid ${t.border}`,display:"flex",paddingBottom:"env(safe-area-inset-bottom, 0px)"}}>
+        {[
+          {id:"download", icon:"⬇", label:"Download"},
+          {id:"playlist", icon:"📋", label:"Playlist"},
+          {id:"batch",    icon:"📦", label:"Batch"},
+          {id:"queue",    icon:"⚡", label:"Queue",  badge:activeDownloads||doneDownloads},
+          {id:"donate",   icon:"💜", label:"Donate"},
+        ].map(item=>(
+          <button key={item.id} onClick={()=>setTab(item.id)}
+            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 4px 8px",background:"none",border:"none",cursor:"pointer",fontFamily:"var(--font)",position:"relative",WebkitTapHighlightColor:"transparent"}}>
+            {/* Active indicator */}
+            {tab===item.id&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:28,height:3,borderRadius:"0 0 3px 3px",background:`linear-gradient(90deg,${t.accentBright},#a855f7)`}}/>}
+            <div style={{width:38,height:26,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",background:tab===item.id?t.accentSoft:"transparent",transition:"all 0.2s",fontSize:17,position:"relative"}}>
+              {item.icon}
+              {item.badge>0&&<span style={{position:"absolute",top:-2,right:-2,background:t.danger,color:"#fff",fontSize:8,fontWeight:800,padding:"1px 4px",borderRadius:20,minWidth:14,textAlign:"center",lineHeight:"14px"}}>{item.badge}</span>}
+            </div>
+            <span style={{fontSize:9,fontWeight:tab===item.id?700:500,color:tab===item.id?t.accentBright:t.textMuted,letterSpacing:0.3,textTransform:"uppercase",transition:"color 0.2s"}}>{item.label}</span>
+          </button>
+        ))}
+      </nav>
+
       {/* Content */}
-      <main style={{maxWidth:920,margin:"0 auto",padding:"32px 20px 60px",position:"relative",zIndex:1}}>
+      <main className="main-content" style={{maxWidth:920,margin:"0 auto",padding:"32px 20px 60px",position:"relative",zIndex:1}}>
 
         {/* ── DOWNLOAD ── */}
         {tab==="download"&&(
@@ -446,7 +480,7 @@ export default function App(){
             </div>
 
             {/* ── Platform Pill Selector ── */}
-            <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:20,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:20,flexWrap:"wrap",padding:"0 4px"}}>
               {[
                 {id:"youtube",   icon:"▶", label:"YouTube",   color:"#ff0000", bg:"#ff000018"},
                 {id:"instagram", icon:"📸", label:"Instagram", color:"#e1306c", bg:"#e1306c18"},
