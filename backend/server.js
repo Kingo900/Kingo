@@ -359,8 +359,18 @@ setInterval(checkYtdlpVersion, 6 * 60 * 60 * 1000); // check every 6 hours
 // ── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 
-app.get("/api/health", (req, res) => res.json({ status:"ok", version:"4.0.0", app:"Kingo YT Downloader", uptime:process.uptime() }));
+app.get("/api/health", (req, res) => res.json({ status:"ok", version:"5.0.0", app:"Kingo Downloader", uptime:process.uptime() }));
 app.get("/api/banner", (req, res) => res.json({ message:store.settings.bannerMessage, maintenance:store.settings.maintenanceMode }));
+
+// ── Public cookie status (valid/invalid only, no sensitive info) ──────────────
+app.get("/api/cookie-status", (req, res) => {
+  const statuses = {};
+  for (const [p] of Object.entries(PLATFORMS)) {
+    const r = validateCookiesSync(p);
+    statuses[p] = { valid: r.valid };
+  }
+  res.json(statuses);
+});
 
 // ── Info (all platforms) ──────────────────────────────────────────────────────
 app.get("/api/info", async (req, res) => {
@@ -375,8 +385,9 @@ app.get("/api/info", async (req, res) => {
   const cacheKey = `${detectedPlatform}:${safeUrl}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json({ ...cached, cached:true });
-  const baseArgs = buildYtdlpBaseArgs(detectedPlatform).join(" ");
-  const cmd = `yt-dlp --dump-json --no-playlist ${baseArgs} "${safeUrl}"`;
+  const baseArgs = buildYtdlpBaseArgs(detectedPlatform);
+  if (detectedPlatform === "tiktok") baseArgs.push("--impersonate", "chrome");
+  const cmd = `yt-dlp --dump-json --no-playlist ${baseArgs.join(" ")} "${safeUrl}"`;
   exec(cmd, { timeout:45000 }, (err, stdout, stderr) => {
     if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch info. The content may be private or unavailable." }); }
     try {
@@ -454,15 +465,21 @@ app.get("/api/download-progress", async (req, res) => {
   const outputTemplate = path.join(tmpDir, "%(title)s.%(ext)s");
   const args = ["--no-playlist", "--newline", "--progress", ...buildYtdlpBaseArgs(detectedPlatform), "-o", outputTemplate];
 
-  if (detectedPlatform === "instagram" || detectedPlatform === "tiktok") {
-    // For social platforms: best quality, handle images too
+  if (detectedPlatform === "tiktok") {
+    // TikTok requires browser impersonation
+    args.push("--impersonate", "chrome");
     if (type === "audio") {
       args.push("-x", "--audio-format", format, "--audio-quality", "0");
     } else {
-      // TikTok watermark removal
-      if (detectedPlatform === "tiktok" && noWatermark === "true") {
+      if (noWatermark === "true") {
         args.push("--extractor-args", "tiktok:api_hostname=api22-normal-c-alisg.tiktok.com");
       }
+      args.push("-f", "bestvideo+bestaudio/best", "--merge-output-format", format);
+    }
+  } else if (detectedPlatform === "instagram") {
+    if (type === "audio") {
+      args.push("-x", "--audio-format", format, "--audio-quality", "0");
+    } else {
       args.push("-f", "bestvideo+bestaudio/best", "--merge-output-format", format);
     }
   } else {

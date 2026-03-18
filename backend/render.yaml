@@ -2,7 +2,7 @@ services:
   - type: web
     name: kingo-api
     env: node
-    buildCommand: npm install && pip install yt-dlp --break-system-packages
+    buildCommand: npm install && pip install yt-dlp curl-cffi --break-system-packages
     startCommand: node server.js
     envVars:
       - key: PORT
