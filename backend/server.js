@@ -387,10 +387,14 @@ app.get("/api/info", async (req, res) => {
   if (cached) return res.json({ ...cached, cached:true });
   const baseArgs = buildYtdlpBaseArgs(detectedPlatform);
   if (detectedPlatform === "tiktok") baseArgs.push("--impersonate", "chrome");
-  if (detectedPlatform === "instagram") baseArgs.push("--impersonate", "chrome", "--add-header", "Accept-Language:en-US,en;q=0.9");
-  const cmd = `yt-dlp --dump-json --no-playlist ${baseArgs.join(" ")} "${safeUrl}"`;
-  exec(cmd, { timeout:45000 }, (err, stdout, stderr) => {
-    if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch info. The content may be private or unavailable." }); }
+  if (detectedPlatform === "instagram") baseArgs.push("--impersonate", "chrome");
+  const infoArgs = ["--dump-json", "--no-playlist", ...baseArgs, safeUrl];
+  let stdout = "", stderr = "";
+  const infoProc = require("child_process").spawn("yt-dlp", infoArgs);
+  infoProc.stdout.on("data", d => stdout += d);
+  infoProc.stderr.on("data", d => stderr += d);
+  infoProc.on("close", code => {
+    if (code !== 0) { logError(safeUrl, stderr?.slice(0,300)||"Exit "+code, ip); return res.status(500).json({ error:"Could not fetch info. The content may be private or unavailable." }); }
     try {
       const info = JSON.parse(stdout);
       if (detectedPlatform==="youtube" && store.settings.maxDuration && info.duration > store.settings.maxDuration) return res.status(400).json({ error:`Video too long (max ${store.settings.maxDuration/60} minutes).` });
@@ -403,8 +407,12 @@ app.get("/api/info", async (req, res) => {
         Object.entries(qMap).forEach(([q,sizes]) => { if(sizes.length) formatSizes[q]=Math.max(...sizes); });
         const audioFmts = info.formats.filter(f=>f.vcodec==="none"&&(f.filesize||f.filesize_approx));
         if (audioFmts.length) formatSizes["audio"] = Math.max(...audioFmts.map(f=>f.filesize||f.filesize_approx||0));
+        // For social platforms also capture the largest overall format
+        if (detectedPlatform !== "youtube") {
+          const allSizes = info.formats.filter(f=>f.filesize||f.filesize_approx).map(f=>f.filesize||f.filesize_approx||0);
+          if (allSizes.length) formatSizes["best"] = Math.max(...allSizes);
+        }
       }
-      // Detect if it's a multi-image carousel (Instagram)
       const isCarousel = info._type === "playlist" || (info.entries && info.entries.length > 1);
       const mediaType = info.ext === "jpg" || info.ext === "png" || info.ext === "webp" ? "image" : "video";
       const data = {
@@ -419,6 +427,8 @@ app.get("/api/info", async (req, res) => {
       res.json(data);
     } catch(e) { logError(safeUrl,"Parse error: "+e.message,ip); res.status(500).json({error:"Failed to parse info"}); }
   });
+  // Close timeout
+  setTimeout(() => { if (!res.headersSent) { infoProc.kill(); res.status(500).json({error:"Request timed out"}); } }, 45000);
 });
 
 // ── Playlist (YouTube only) ───────────────────────────────────────────────────
@@ -478,7 +488,7 @@ app.get("/api/download-progress", async (req, res) => {
       args.push("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best", "--merge-output-format", "mp4");
     }
   } else if (detectedPlatform === "instagram") {
-    args.push("--impersonate", "chrome", "--add-header", "Accept-Language:en-US,en;q=0.9");
+    args.push("--impersonate", "chrome");
     if (type === "audio") {
       args.push("-x", "--audio-format", format, "--audio-quality", "0");
     } else {
