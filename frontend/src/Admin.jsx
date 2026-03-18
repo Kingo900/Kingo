@@ -366,6 +366,15 @@ function CookiesManager({adminKey}){
     {id:"instagram", label:"Instagram", icon:"📸", color:"#e1306c", domain:"instagram.com", hint:"Log into instagram.com and export cookies. Required for Reels, photos & Stories."},
     {id:"tiktok",    label:"TikTok",    icon:"♪", color:"#69c9d0", domain:"tiktok.com",    hint:"Optional — most public TikTok videos work without cookies."},
   ];
+
+  function fmtAge(modified) {
+    if (!modified) return null;
+    const secs = Math.floor((Date.now() - new Date(modified)) / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs/3600)}h ago`;
+    return `${Math.floor(secs/86400)}d ago`;
+  }
   const [activePlatform,setActivePlatform]=useState("youtube");
   const [statuses,setStatuses]=useState({});
   const [uploading,setUploading]=useState(false);
@@ -416,7 +425,7 @@ function CookiesManager({adminKey}){
                   {s.valid?"✅ Valid":"❌ "+( s.reason?.slice(0,20)||"Missing")}
                 </span>
               ):<span style={{color:C.textMuted,fontSize:11}}>Loading…</span>}
-              {s?.valid&&s.ageDays!==undefined&&<p style={{color:C.textMuted,fontSize:10,margin:"4px 0 0"}}>{s.ageDays}d old · {s.sizeKB} KB</p>}
+              {s?.valid&&s.modified&&<p style={{color:C.textMuted,fontSize:10,margin:"4px 0 0"}}>{fmtAge(s.modified)} · {s.sizeKB} KB</p>}
             </div>
           );
         })}
