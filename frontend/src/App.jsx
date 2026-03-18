@@ -53,19 +53,38 @@ function removeRecentURL(url){try{localStorage.setItem(RECENT_KEY,JSON.stringify
 const toSecs=(h,m,s)=>h*3600+m*60+s;
 const fromSecs=(total)=>{const t=Math.max(0,Math.round(total));return{h:Math.floor(t/3600),m:Math.floor((t%3600)/60),s:t%60};};
 const fmt=(total)=>{const{h,m,s}=fromSecs(total);return`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;};
-function estimateSize(videoInfo,mediaType,qualityValue){
-  if(!videoInfo?.duration)return null;
-  const dur=videoInfo.duration;
-  if(videoInfo.formatSizes){
-    const key=mediaType==="audio"?"audio":qualityValue;
-    const s=videoInfo.formatSizes[key];
-    if(s&&s>0){const mb=s/1024/1024;return mb>=1024?(mb/1024).toFixed(1)+" GB":mb.toFixed(0)+" MB";}
+function estimateSize(videoInfo, mediaType, qualityValue){
+  if(!videoInfo?.duration) return null;
+  const dur = videoInfo.duration;
+  const platform = videoInfo.platform || "youtube";
+
+  // For Instagram/TikTok — use actual filesize from formatSizes if available
+  if(platform !== "youtube"){
+    if(videoInfo.formatSizes){
+      // Try to find the largest video format size
+      const sizes = Object.values(videoInfo.formatSizes).filter(s => s > 0);
+      if(sizes.length > 0){
+        const mb = Math.max(...sizes) / 1024 / 1024;
+        return mb >= 1024 ? (mb/1024).toFixed(1)+" GB" : mb.toFixed(0)+" MB";
+      }
+    }
+    // Fallback for social platforms — assume ~5 Mbps for short videos
+    const mb = (5000 * 1000 / 8) * dur / 1024 / 1024;
+    return "~"+(mb >= 1024 ? (mb/1024).toFixed(1)+" GB" : mb.toFixed(0)+" MB");
   }
-  const kbps=mediaType==="audio"
-    ?({0:320,320:320,192:192,128:128}[qualityValue]||192)
-    :({2160:25000,1440:12000,1080:5000,720:2500,480:1200,360:700,240:400}[qualityValue]||2500);
-  const mb=(kbps*1000/8)*dur/1024/1024;
-  return"~"+(mb>=1024?(mb/1024).toFixed(1)+" GB":mb.toFixed(0)+" MB");
+
+  // YouTube — use format-specific sizes
+  if(videoInfo.formatSizes){
+    const key = mediaType === "audio" ? "audio" : qualityValue;
+    const s = videoInfo.formatSizes[key];
+    if(s && s > 0){ const mb = s/1024/1024; return mb>=1024?(mb/1024).toFixed(1)+" GB":mb.toFixed(0)+" MB"; }
+  }
+  // YouTube bitrate fallback
+  const kbps = mediaType === "audio"
+    ? ({0:320,320:320,192:192,128:128}[qualityValue] || 192)
+    : ({2160:20000,1440:10000,1080:4000,720:2000,480:1000,360:600,240:350}[qualityValue] || 2000);
+  const mb = (kbps * 1000 / 8) * dur / 1024 / 1024;
+  return "~"+(mb >= 1024 ? (mb/1024).toFixed(1)+" GB" : mb.toFixed(0)+" MB");
 }
 
 const CSS=`
