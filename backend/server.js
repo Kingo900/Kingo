@@ -387,6 +387,7 @@ app.get("/api/info", async (req, res) => {
   if (cached) return res.json({ ...cached, cached:true });
   const baseArgs = buildYtdlpBaseArgs(detectedPlatform);
   if (detectedPlatform === "tiktok") baseArgs.push("--impersonate", "chrome");
+  if (detectedPlatform === "instagram") baseArgs.push("--impersonate", "chrome", "--add-header", "Accept-Language:en-US,en;q=0.9");
   const cmd = `yt-dlp --dump-json --no-playlist ${baseArgs.join(" ")} "${safeUrl}"`;
   exec(cmd, { timeout:45000 }, (err, stdout, stderr) => {
     if (err) { logError(safeUrl, stderr?.slice(0,300)||err.message, ip); return res.status(500).json({ error:"Could not fetch info. The content may be private or unavailable." }); }
@@ -466,7 +467,6 @@ app.get("/api/download-progress", async (req, res) => {
   const args = ["--no-playlist", "--newline", "--progress", ...buildYtdlpBaseArgs(detectedPlatform), "-o", outputTemplate];
 
   if (detectedPlatform === "tiktok") {
-    // TikTok requires browser impersonation
     args.push("--impersonate", "chrome");
     if (type === "audio") {
       args.push("-x", "--audio-format", format, "--audio-quality", "0");
@@ -474,13 +474,16 @@ app.get("/api/download-progress", async (req, res) => {
       if (noWatermark === "true") {
         args.push("--extractor-args", "tiktok:api_hostname=api22-normal-c-alisg.tiktok.com");
       }
-      args.push("-f", "bestvideo+bestaudio/best", "--merge-output-format", format);
+      // Best video + best audio, fallback to best single format
+      args.push("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best", "--merge-output-format", "mp4");
     }
   } else if (detectedPlatform === "instagram") {
+    args.push("--impersonate", "chrome", "--add-header", "Accept-Language:en-US,en;q=0.9");
     if (type === "audio") {
       args.push("-x", "--audio-format", format, "--audio-quality", "0");
     } else {
-      args.push("-f", "bestvideo+bestaudio/best", "--merge-output-format", format);
+      // Instagram: force best quality, no format restrictions
+      args.push("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best", "--merge-output-format", "mp4");
     }
   } else {
     // YouTube
